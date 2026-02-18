@@ -1,0 +1,34 @@
+[{
+  "_id": {
+    "$oid": "696882ceb7d4cc10d9a5f178"
+  },
+  "user_id": {
+    "$oid": "6964eb584af2c391e4cf8c27"
+  },
+  "answerbook": [
+    {
+      "questionType": "Achievement Motivation",
+      "qusetionSet": [
+        {
+          "qustionId": {
+            "$oid": "69668d4f222e7f5fb433221e"
+          },
+          "answerOption": "B",
+          "_id": {
+            "$oid": "696882ceb7d4cc10d9a5f17a"
+          }
+        }
+      ],
+      "_id": {
+        "$oid": "696882ceb7d4cc10d9a5f179"
+      }
+    }
+  ],
+  "createdAt": {
+    "$date": "2026-01-15T06:01:50.625Z"
+  },
+  "updatedAt": {
+    "$date": "2026-01-15T06:01:50.625Z"
+  },
+  "__v": 0
+}]
