@@ -176,7 +176,7 @@ export const getClientById = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id)
       .populate("companyInfo.country companyInfo.state companyInfo.city companyInfo.pincode")
-            .populate("individualInfo.country individualInfo.state individualInfo.city individualInfo.pincode")
+            .populate("individualInfo.individual_country individualInfo.individual_state individualInfo.individual_city individualInfo.individual_pincode")
 
       .populate("team");
 
