@@ -434,7 +434,7 @@ export const getSiteById = async (req, res) => {
       .populate("country_id", "name code countryId")
       .populate("state_id", "state_name country_id state_id")
       .populate("city_id", "city_name city_id state_id")
-      .populate("pincode_id")
+      .populate("pincode_id" )
 
     if (!site) {
       return res.status(404).json({

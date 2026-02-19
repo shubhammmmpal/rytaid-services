@@ -1,83 +1,88 @@
 import mongoose from "mongoose";
 const jobSchema = new mongoose.Schema(
   {
-    
-assignedTo: {
+    assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Member",
       required: true,
     },
-    site_id:[ {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Site",
-      required: true,
-    }],
-    client:{
-        type: mongoose.Schema.Types.ObjectId,  
-        ref: "Client",
+    site_id: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Site",
         required: true,
+      },
+    ],
+    client: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Client",
+      required: true,
     },
     notes: {
       type: String,
     },
     status: {
       type: String,
-      enum: ['pending','approved','rejected'],
-      default: 'pending'
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
     },
     startDate: {
-    type: Date,
-    required: true,
+      type: Date,
+      required: true,
     },
     endDate: {
-      
-    type: Date,
-    required: true,
+      type: Date,
+      required: true,
     },
     startTime: {
-    type: String,
-    required: true,
+      type: String,
+      required: true,
     },
     endTime: {
-    type: String,
-    required: true,
+      type: String,
+      required: true,
     },
-    Duration: {
-    type: String,
-    // required: true,
-    },
-    punchIn: {
-    type: String,
-    default: null,
-    },
-    punchOut: {
-    type: String,
-    default: null,
+ attendance: {
+      punchIn: {
+        time: { type: Date, default: null },
+        images: [{ type: String }],
+      },
+
+      punchOut: {
+        time: { type: Date, default: null },
+        images: [{ type: String }],
+      },
+
+      duration: {
+        type: Number, // minutes
+        default: null,
+      },
     },
     devicesUsed: {
-    type: String,
-    default: null,
+      type: String,
+      default: null,
     },
-    afterPhoto: [{
-    type: String,
-    default: null,
-  }],
-  beofePhoto: [{
-    type: String,
-    default: null,
-  }],
-  latitude: {
-    type: String,
-    default: null,
+    beforePhoto: [
+      {
+        type: String,
+      },
+    ],
+    afterPhoto: [
+      {
+        type: String,
+      },
+    ],
+    latitude: {
+      type: String,
+      default: null,
+    },
+    longitude: {
+      type: String,
+      default: null,
+    },
   },
-  longitude: {
-    type: String,
-    default: null, 
-  }
 
-  },
-  
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Job", jobSchema);

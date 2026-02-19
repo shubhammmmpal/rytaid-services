@@ -570,3 +570,193 @@ const activity = await Job.aggregate([
     });
   }
 };
+
+
+
+
+export const punchInJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { notes } = req.body;
+
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.attendance?.punchIn?.time) {
+      return res.status(400).json({ message: "Already punched in" });
+    }
+
+    const uploadedImages = [];
+
+    // 🔥 Upload Images if provided
+if (req.files && req.files.images) {
+  for (const file of req.files.images) {
+    const result = await imagekit.upload({
+      file: file.buffer,
+      fileName: file.originalname,
+    });
+
+    uploadedImages.push(result.url);
+  }
+}
+
+
+    // 🔥 Set Attendance Data
+    job.attendance.punchIn.time = new Date();
+    job.attendance.punchIn.images = uploadedImages;
+
+    if (notes) {
+      job.notes = notes;
+    }
+
+    await job.save();
+
+    res.status(200).json({
+      message: "Punch In successful",
+      imagesUploaded: uploadedImages.length,
+      punchInTime: job.attendance.punchIn.time,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
+export const punchOutJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { notes } = req.body;
+
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (!job.attendance?.punchIn?.time) {
+      return res.status(400).json({ message: "Punch in first" });
+    }
+
+    if (job.attendance?.punchOut?.time) {
+      return res.status(400).json({ message: "Already punched out" });
+    }
+
+    const uploadedImages = [];
+
+    // 🔥 Upload Images if provided
+if (req.files && req.files.images) {
+  for (const file of req.files.images) {
+    const result = await imagekit.upload({
+      file: file.buffer,
+      fileName: file.originalname,
+    });
+
+    uploadedImages.push(result.url);
+  }
+}
+
+
+    const punchOutTime = new Date();
+
+    job.attendance.punchOut.time = punchOutTime;
+    job.attendance.punchOut.images = uploadedImages;
+
+    // 🔥 Calculate Duration
+    const diff = punchOutTime - job.attendance.punchIn.time;
+    job.attendance.duration = Math.floor(diff / 1000 / 60);
+
+    if (notes) {
+      job.notes = notes;
+    }
+
+    await job.save();
+
+    res.status(200).json({
+      message: "Punch Out successful",
+      duration: job.attendance.duration + " minutes",
+      imagesUploaded: uploadedImages.length,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
+
+export const updateJobNotes = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { notes } = req.body;
+
+    const job = await Job.findByIdAndUpdate(
+      jobId,
+      { notes },
+      { new: true }
+    );
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    res.status(200).json({
+      message: "Notes updated successfully",
+      job,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+export const uploadJobImages = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { type } = req.query; // before or after
+
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const uploadedImages = [];
+
+    for (const file of req.files) {
+      const result = await imagekit.upload({
+        file: file.buffer,
+        fileName: file.originalname,
+      });
+
+      uploadedImages.push(result.url);
+    }
+
+    if (type === "before") {
+      job.beforePhoto.push(...uploadedImages);
+    } else if (type === "after") {
+      job.afterPhoto.push(...uploadedImages);
+    } else {
+      return res.status(400).json({ message: "Invalid type" });
+    }
+
+    await job.save();
+
+    res.status(200).json({
+      message: "Images uploaded successfully",
+      count: uploadedImages.length,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
