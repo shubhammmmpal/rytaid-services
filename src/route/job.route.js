@@ -15,7 +15,8 @@ import {
   punchInJob,
   punchOutJob,
   updateJobNotes,
-  uploadJobImages,
+  addAfterAttachments,
+  removeAttachment
 } from "../controller/job.controller.js";
 
 const router = express.Router();
@@ -54,7 +55,16 @@ router.patch(
 );
 
 // 🔹 Update Notes
-router.patch("/:jobId/update-notes", updateJobNotes);
+router.patch("/:jobId/notes", updateJobNotes);
+
+router.patch(
+  "/:jobId/after-attachments",
+  upload.array("images", 20),
+  addAfterAttachments
+);
+
+router.patch("/:jobId/remove-attachment", removeAttachment);
+
 
 // 🔹 Upload Images (before / after)
 // Query param: ?type=before  OR  ?type=after

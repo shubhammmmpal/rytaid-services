@@ -577,7 +577,7 @@ const activity = await Job.aggregate([
 export const punchInJob = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { notes } = req.body;
+    // const { notes } = req.body;
 
     const job = await Job.findById(jobId);
 
@@ -608,9 +608,9 @@ if (req.files && req.files.images) {
     job.attendance.punchIn.time = new Date();
     job.attendance.punchIn.images = uploadedImages;
 
-    if (notes) {
-      job.notes = notes;
-    }
+    // if (notes) {
+    //   job.notes = notes;
+    // }
 
     await job.save();
 
@@ -631,7 +631,7 @@ if (req.files && req.files.images) {
 export const punchOutJob = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { notes } = req.body;
+    // const { notes } = req.body;
 
     const job = await Job.findById(jobId);
 
@@ -643,9 +643,9 @@ export const punchOutJob = async (req, res) => {
       return res.status(400).json({ message: "Punch in first" });
     }
 
-    if (job.attendance?.punchOut?.time) {
-      return res.status(400).json({ message: "Already punched out" });
-    }
+    // if (job.attendance?.punchOut?.time) {
+    //   return res.status(400).json({ message: "Already punched out" });
+    // }
 
     const uploadedImages = [];
 
@@ -671,9 +671,9 @@ if (req.files && req.files.images) {
     const diff = punchOutTime - job.attendance.punchIn.time;
     job.attendance.duration = Math.floor(diff / 1000 / 60);
 
-    if (notes) {
-      job.notes = notes;
-    }
+    // if (notes) {
+    //   job.notes = notes;
+    // }
 
     await job.save();
 
@@ -697,41 +697,59 @@ export const updateJobNotes = async (req, res) => {
     const { jobId } = req.params;
     const { notes } = req.body;
 
-    const job = await Job.findByIdAndUpdate(
-      jobId,
-      { notes },
-      { new: true }
-    );
+    if (!notes || notes.trim() === "") {
+      return res.status(400).json({
+        message: "Notes cannot be empty",
+      });
+    }
+
+    const job = await Job.findById(jobId);
 
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      return res.status(404).json({
+        message: "Job not found",
+      });
     }
+
+    job.notes = notes;
+    await job.save();
 
     res.status(200).json({
       message: "Notes updated successfully",
-      job,
+      notes: job.notes,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
 
 
-export const uploadJobImages = async (req, res) => {
+
+export const addAfterAttachments = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { type } = req.query; // before or after
 
     const job = await Job.findById(jobId);
 
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      return res.status(404).json({
+        message: "Job not found",
+      });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        message: "No images uploaded",
+      });
     }
 
     const uploadedImages = [];
 
+    // 🔥 Upload to ImageKit
     for (const file of req.files) {
       const result = await imagekit.upload({
         file: file.buffer,
@@ -741,22 +759,74 @@ export const uploadJobImages = async (req, res) => {
       uploadedImages.push(result.url);
     }
 
-    if (type === "before") {
-      job.beforePhoto.push(...uploadedImages);
-    } else if (type === "after") {
-      job.afterPhoto.push(...uploadedImages);
-    } else {
-      return res.status(400).json({ message: "Invalid type" });
-    }
+    // 🔥 Append (not replace)
+    job.afterPhoto.push(...uploadedImages);
 
     await job.save();
 
     res.status(200).json({
-      message: "Images uploaded successfully",
-      count: uploadedImages.length,
+      message: "Images added successfully",
+      added: uploadedImages.length,
+      totalImages: job.afterPhoto.length,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
+
+
+export const removeAttachment = async (req, res) => {
+  console.log("hkahkhsksk")
+  try {
+    const { jobId } = req.params;
+    const { imageName } = req.body; // yaha full URL aayega
+
+    console.log(req.params.jobId)
+    console.log(imageName)
+
+    if (!imageName) {
+      return res.status(400).json({
+        message: "imageName (full URL) is required",
+      });
+    }
+
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found",
+      });
+    }
+
+    // 🔥 Check image exists
+    if (!job.afterPhoto.includes(imageName)) {
+      return res.status(400).json({
+        message: "Image not found in afterPhoto array",
+      });
+    }
+
+    // 🔥 Remove exact URL match
+    job.afterPhoto = job.afterPhoto.filter(
+      (url) => url !== imageName
+    );
+
+    await job.save();
+
+    res.status(200).json({
+      message: "Attachment removed successfully",
+      totalImages: job.afterPhoto.length,
+      afterPhoto: job.afterPhoto,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+
+
