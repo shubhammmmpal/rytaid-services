@@ -382,7 +382,7 @@ export const createInvite = async (req, res) => {
       $push: { invites: invite._id },
     });
 
-const link = `${process.env.FRONTEND_URL}/inviteMember/${token}`;
+const link = `https://api.greyninja.in/inviteMember/${token}`;
     console.log(token,link)
     // ✅ SEND EMAIL HERE
     // await sendEmail(
