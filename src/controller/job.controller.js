@@ -40,7 +40,67 @@ export const createJob = async (req, res) => {
     });
   }
 };
-/* ================= GET ALL JOBS (FILTER + PAGINATION) ================= */
+
+// /* ================= GET ALL JOBS (FILTER + PAGINATION) ================= */
+// export const getAllJobs = async (req, res) => {
+//   try {
+//     const {
+//       search,
+//       status,
+//       assignedTo,
+//       client,
+//       site_id,
+//       startDate,
+//       endDate,
+//       page = 1,
+//       limit = 10,
+//     } = req.query;
+
+//     const filter = {};
+
+//     // 🎯 Filters
+//     if (status) filter.status = status;
+//     if (assignedTo) filter.assignedTo = assignedTo;
+//     if (client) filter.client = client;
+//     if (site_id) filter.site_id = site_id;
+
+//     // 📅 Date range filter
+//     if (startDate || endDate) {
+//       filter.startDate = {};
+//       if (startDate) filter.startDate.$gte = new Date(startDate);
+//       if (endDate) filter.startDate.$lte = new Date(endDate);
+//     }
+
+//     // 🔍 Notes search
+//     if (search) {
+//       filter.notes = { $regex: search, $options: "i" };
+//     }
+
+//     const jobs = await Job.find(filter)
+//       .populate("assignedTo", "firstName lastName email")
+//       .populate("client", "companyInfo email")
+//       .populate("site_id", "site_id site_name")
+//       .skip((page - 1) * limit)
+//       .limit(Number(limit))
+//       .sort({ createdAt: -1 });
+
+//     const total = await Job.countDocuments(filter);
+
+//     res.status(200).json({
+//       success: true,
+//       total,
+//       page: Number(page),
+//       limit: Number(limit),
+//       data: jobs,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 export const getAllJobs = async (req, res) => {
   try {
     const {
@@ -51,46 +111,62 @@ export const getAllJobs = async (req, res) => {
       site_id,
       startDate,
       endDate,
-      page = 1,
-      limit = 10,
     } = req.query;
 
     const filter = {};
 
-    // 🎯 Filters
-    if (status) filter.status = status;
-    if (assignedTo) filter.assignedTo = assignedTo;
-    if (client) filter.client = client;
-    if (site_id) filter.site_id = site_id;
+    // Basic filters
+    if (status)       filter.status     = status;
+    if (assignedTo)   filter.assignedTo = assignedTo;
+    if (client)       filter.client     = client;
+    if (site_id)      filter.site_id    = site_id;
 
-    // 📅 Date range filter
+    // Date range filter (on startDate field)
     if (startDate || endDate) {
       filter.startDate = {};
       if (startDate) filter.startDate.$gte = new Date(startDate);
-      if (endDate) filter.startDate.$lte = new Date(endDate);
+      if (endDate)   filter.startDate.$lte = new Date(endDate);
     }
 
-    // 🔍 Notes search
+    // Search in notes
     if (search) {
       filter.notes = { $regex: search, $options: "i" };
     }
 
+    // Fetch ALL matching jobs (no pagination)
     const jobs = await Job.find(filter)
       .populate("assignedTo", "firstName lastName email")
       .populate("client", "companyInfo email")
       .populate("site_id", "site_id site_name")
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })   // or change to { startDate: -1, createdAt: -1 }
+      .lean();                   // faster + easier to work with plain objects
 
-    const total = await Job.countDocuments(filter);
+    // ────────────────────────────────────────────────
+    // Group by startDate (YYYY-MM-DD)
+    // ────────────────────────────────────────────────
+    const grouped = {};
+
+    for (const job of jobs) {
+      // Use startDate instead of createdAt
+      const dateStr = job.startDate
+        ? new Date(job.startDate).toISOString().split("T")[0]
+        : "no-start-date"; // fallback for jobs without startDate
+
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = [];
+      }
+      grouped[dateStr].push(job);
+    }
+
+    // Convert to array + sort groups by date descending
+    const groupedArray = Object.entries(grouped)
+      .map(([date, jobs]) => ({ date, jobs }))
+      .sort((a, b) => b.date.localeCompare(a.date)); // newest → oldest
 
     res.status(200).json({
       success: true,
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      data: jobs,
+      total: jobs.length,
+      data: groupedArray,
     });
   } catch (error) {
     res.status(500).json({
