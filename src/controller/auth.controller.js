@@ -176,6 +176,8 @@ export const getClientById = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id)
       .populate("companyInfo.country companyInfo.state companyInfo.city companyInfo.pincode")
+            .populate("individualInfo.country individualInfo.state individualInfo.city individualInfo.pincode")
+
       .populate("team");
 
     if (!client) {
@@ -263,6 +265,7 @@ export const changeClientStatus = async (req, res) => {
 
 
 export const updateClient = async (req, res) => {
+  console.log(req.body,"bkbkkbkbkb",req.file)
   try {
     const client = await Client.findById(req.params.id);
 
