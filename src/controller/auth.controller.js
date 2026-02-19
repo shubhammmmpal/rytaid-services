@@ -1,4 +1,3 @@
-
 import { User } from "../model/user.model.js";
 import { Client } from "../model/client.model.js";
 import jwt from "jsonwebtoken";
@@ -10,16 +9,12 @@ import imagekit from "../services/imagekit.js";
 import { sendEmail } from "../services/sendEmail.js";
 import { count } from "console";
 
-
 // 🔑 Generate Token
 const generateToken = (user) => {
-  return jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
 };
-
 
 export const createClient = async (req, res) => {
   try {
@@ -65,7 +60,6 @@ export const createClient = async (req, res) => {
       message: "Client created successfully",
       data: client,
     });
-
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -73,8 +67,6 @@ export const createClient = async (req, res) => {
     });
   }
 };
-
-
 
 export const loginClient = async (req, res) => {
   try {
@@ -94,7 +86,7 @@ export const loginClient = async (req, res) => {
         { "individualInfo.email": email },
       ],
     });
-    console.log(client)
+    console.log(client);
 
     if (!client) {
       return res.status(401).json({
@@ -115,9 +107,9 @@ export const loginClient = async (req, res) => {
 
     // 🎟 JWT token
     const token = jwt.sign(
-      { id: client._id ,role: client.role},
+      { id: client._id, role: client.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.status(200).json({
@@ -139,11 +131,9 @@ export const loginClient = async (req, res) => {
   }
 };
 
-
 //create member by super_admin or user
 export const createMember = async (req, res) => {
   const creator = req.user;
-  
 
   if (!["user", "super_admin"].includes(creator.role)) {
     return res.status(403).json({ message: "Not allowed" });
@@ -151,8 +141,7 @@ export const createMember = async (req, res) => {
 
   // userId must be passed if super_admin is creating
   const assignedUserId =
-    creator.role === ("user") ? creator.id : req.body.createdByUser;
-
+    creator.role === "user" ? creator.id : req.body.createdByUser;
 
   if (!assignedUserId) {
     return res.status(400).json({ message: "User ID required" });
@@ -175,8 +164,12 @@ export const createMember = async (req, res) => {
 export const getClientById = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id)
-      .populate("companyInfo.country companyInfo.state companyInfo.city companyInfo.pincode")
-            .populate("individualInfo.individual_country individualInfo.individual_state individualInfo.individual_city individualInfo.individual_pincode")
+      .populate(
+        "companyInfo.country companyInfo.state companyInfo.city companyInfo.pincode",
+      )
+      .populate(
+        "individualInfo.individual_country individualInfo.individual_state individualInfo.individual_city individualInfo.individual_pincode",
+      )
 
       .populate("team");
 
@@ -198,7 +191,6 @@ export const getClientById = async (req, res) => {
     });
   }
 };
-
 
 export const deleteClient = async (req, res) => {
   try {
@@ -225,7 +217,6 @@ export const deleteClient = async (req, res) => {
   }
 };
 
-
 export const changeClientStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -240,7 +231,7 @@ export const changeClientStatus = async (req, res) => {
     const client = await Client.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true }
+      { new: true },
     );
 
     if (!client) {
@@ -263,9 +254,8 @@ export const changeClientStatus = async (req, res) => {
   }
 };
 
-
 export const updateClient = async (req, res) => {
-  console.log(req.body,"bkbkkbkbkb",req.file)
+  console.log(req.body, "bkbkkbkbkb", req.file);
   try {
     const client = await Client.findById(req.params.id);
 
@@ -313,7 +303,6 @@ export const updateClient = async (req, res) => {
       message: "Client updated successfully",
       data: client,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -321,9 +310,6 @@ export const updateClient = async (req, res) => {
     });
   }
 };
-
-
-
 
 export const createInvite = async (req, res) => {
   try {
@@ -382,8 +368,8 @@ export const createInvite = async (req, res) => {
       $push: { invites: invite._id },
     });
 
-const link = `https://api.greyninja.in/inviteMember/${token}`;
-    console.log(token,link)
+    const link = `https://api.greyninja.in/inviteMember/${token}`;
+    console.log(token, link);
     // ✅ SEND EMAIL HERE
     // await sendEmail(
     //   email,
@@ -394,7 +380,7 @@ const link = `https://api.greyninja.in/inviteMember/${token}`;
     //     <p>You have been invited to join our platform.</p>
     //     <p><strong>Role:</strong> ${role}</p>
     //     <p>Click below to accept your invite:</p>
-    //     <a href="${link}" 
+    //     <a href="${link}"
     //        style="display:inline-block;padding:10px 20px;background:#e11d48;color:white;text-decoration:none;border-radius:6px;">
     //        Accept Invite
     //     </a>
@@ -406,24 +392,20 @@ const link = `https://api.greyninja.in/inviteMember/${token}`;
     res.status(201).json({
       message: "Member invite sent successfully",
       inviteId: invite._id,
-      link
+      link,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
 
-
 // GET /invite/:token
 export const getInviteByToken = async (req, res) => {
   const invite = await Invite.findOne({
-    
     token: req.params.token,
     expiresAt: { $gt: Date.now() },
-  })
-  .populate("country state city pincode")
+  }).populate("country state city pincode");
 
   if (!invite) {
     return res.status(400).json({ message: "Invalid or expired invite" });
@@ -432,13 +414,12 @@ export const getInviteByToken = async (req, res) => {
   res.json(invite); // prefill frontend form
 };
 
-
 export const acceptInvite = async (req, res) => {
-  console.log(req.body)
+  console.log(req.body);
   try {
     const { token, password } = req.body;
     // console.log(req.body)
-    console.log(token)
+    console.log(token);
 
     if (!token || !password) {
       return res.status(400).json({ message: "Token & password required" });
@@ -465,17 +446,15 @@ export const acceptInvite = async (req, res) => {
     };
 
     const member = new Member({
-      _id: invite._id,               // SAME ID
-      email: invite.email,           // LOCKED
-      role: invite.role,             // LOCKED
-      assignTo: invite.assignTo,     // LOCKED
+      _id: invite._id, // SAME ID
+      email: invite.email, // LOCKED
+      role: invite.role, // LOCKED
+      assignTo: invite.assignTo, // LOCKED
       password,
 
       ...allowedUpdates,
 
-      profileImg: req.file
-        ? `/uploads/members/${req.file.filename}`
-        : null,
+      profileImg: req.file ? `/uploads/members/${req.file.filename}` : null,
     });
 
     await member.save();
@@ -511,8 +490,11 @@ export const signinMember = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const isMatch = await member.comparePassword?.(password) ||
-      await (await import("bcryptjs")).default.compare(password, member.password);
+    const isMatch =
+      (await member.comparePassword?.(password)) ||
+      (await (
+        await import("bcryptjs")
+      ).default.compare(password, member.password));
 
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -540,6 +522,7 @@ export const signinMember = async (req, res) => {
 /**
  * GET ALL MEMBERS
  */
+
 export const getAllMembers = async (req, res) => {
   try {
     const {
@@ -554,35 +537,40 @@ export const getAllMembers = async (req, res) => {
     const limitNum = parseInt(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const matchStage = {};
+    const trimmedSearch = search.trim();
+    const regex = trimmedSearch ? new RegExp(trimmedSearch, "i") : null;
 
-    // Status filter
+    // 🔹 Base match (status only)
+    const baseMatch = {};
     if (status && status !== "all") {
-      matchStage.status = status;
+      baseMatch.status = status;
     }
 
-    // Search filter
-    if (search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    // 🔹 Sorting
+    const sortStage = sort === "za" ? { firstName: -1 } : { firstName: 1 };
 
-      matchStage.$or = [
-        { firstName: regex },
-        { lastName: regex },
-        { email: regex },
-        { phone: regex },
-      ];
-    }
+    // 🔹 Common lookup stages
+    const lookupStages = [
+      {
+        $lookup: {
+          from: "countries",
+          localField: "country",
+          foreignField: "_id",
+          as: "countryData",
+        },
+      },
+      { $unwind: { path: "$countryData", preserveNullAndEmptyArrays: true } },
 
-    // Sorting
-    let sortStage =
-      sort === "za"
-        ? { firstName: -1 }
-        : { firstName: 1 };
+      {
+        $lookup: {
+          from: "states",
+          localField: "state",
+          foreignField: "_id",
+          as: "stateData",
+        },
+      },
+      { $unwind: { path: "$stateData", preserveNullAndEmptyArrays: true } },
 
-    const pipeline = [
-      { $match: matchStage },
-
-      // Join City
       {
         $lookup: {
           from: "cities",
@@ -593,49 +581,126 @@ export const getAllMembers = async (req, res) => {
       },
       { $unwind: { path: "$cityData", preserveNullAndEmptyArrays: true } },
 
-      // City search also included
-      ...(search.trim()
-        ? [
+      {
+        $lookup: {
+          from: "pincodes",
+          localField: "pincode",
+          foreignField: "_id",
+          as: "pincodeData",
+        },
+      },
+      { $unwind: { path: "$pincodeData", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "clients",
+          let: { clientId: "$assignTo" }, // ✅ CORRECT FIELD NAME
+          pipeline: [
             {
               $match: {
-                $or: [
-                  { firstName: new RegExp(search, "i") },
-                  { lastName: new RegExp(search, "i") },
-                  { email: new RegExp(search, "i") },
-                  { phone: new RegExp(search, "i") },
-                  { "cityData.city_name": new RegExp(search, "i") },
-                ],
+                $expr: { $eq: ["$_id", "$$clientId"] },
               },
             },
-          ]
-        : []),
+            {
+              $project: {
+                _id: 1,
+                companyInfo: {
+                  companyName: "$companyInfo.companyName",
+                  email: "$companyInfo.companyEmail",
+                  phone: "$companyInfo.companyPhone",
+                },
+                // status: 1
+              },
+            },
+          ],
+          as: "clientData",
+        },
+      },
+      {
+        $unwind: {
+          path: "$clientData",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ];
 
+    // 🔹 Search match (including joined fields)
+    const searchMatch = regex
+      ? {
+          $match: {
+            $or: [
+              { firstName: regex },
+              { lastName: regex },
+              { email: regex },
+              { phone: regex },
+              { "cityData.city_name": regex },
+              { "stateData.state_name": regex },
+              { "countryData.country_name": regex },
+              { "pincodeData.code": regex },
+            ],
+          },
+        }
+      : null;
+
+    // 🔹 MAIN DATA PIPELINE
+    const dataPipeline = [
+      { $match: baseMatch },
+      ...lookupStages,
+      ...(searchMatch ? [searchMatch] : []),
       { $sort: sortStage },
       { $skip: skip },
       { $limit: limitNum },
+
+      // Clean response
+      {
+        $project: {
+          firstName: 1,
+          lastName: 1,
+          email: 1,
+          phone: 1,
+          role: 1,
+          note: 1,
+          address: 1,
+          streetAddress: 1,
+          status: 1,
+          country: "$countryData",
+          state: "$stateData",
+          city: "$cityData",
+          pincode: "$pincodeData",
+          assignTo: "$clientData",
+          createdAt: 1,
+        },
+      },
     ];
 
-    const members = await Member.aggregate(pipeline);
+    const members = await Member.aggregate(dataPipeline);
 
-    const total = await Member.countDocuments(matchStage);
+    // 🔹 COUNT PIPELINE (IMPORTANT)
+    const countPipeline = [
+      { $match: baseMatch },
+      ...lookupStages,
+      ...(searchMatch ? [searchMatch] : []),
+      { $count: "total" },
+    ];
 
-    res.json({
+    const totalResult = await Member.aggregate(countPipeline);
+    const total = totalResult[0]?.total || 0;
+
+    res.status(200).json({
       success: true,
       total,
       page: pageNum,
       totalPages: Math.ceil(total / limitNum),
       data: members,
     });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("Get Members Error:", error);
     res.status(500).json({
       success: false,
-      message: "Search failed",
-      error: err.message,
+      message: "Failed to fetch members",
+      error: error.message,
     });
   }
 };
-
 
 /**
  * GET MEMBER BY ID
@@ -729,14 +794,14 @@ export const deleteMember = async (req, res) => {
   }
 };
 
-
 /**
  * 1️⃣ Get All Client List (Minimal)
  */
 export const getAllClientList = async (req, res) => {
   try {
-    const clients = await Client.find({})
-      .select("_id companyInfo.companyName companyInfo.companyEmail");
+    const clients = await Client.find({}).select(
+      "_id companyInfo.companyName companyInfo.companyEmail",
+    );
 
     const formatted = clients.map((c) => ({
       _id: c._id,
@@ -756,9 +821,9 @@ export const getAllClientList = async (req, res) => {
 export const getAllClients = async (req, res) => {
   try {
     const {
-      status,           // "active" | "inactive" | "all"
+      status, // "active" | "inactive" | "all"
       search = "",
-      sort = "recent",  // "recent" | "az" | "za"
+      sort = "recent", // "recent" | "az" | "za"
       startDate,
       endDate,
       page = 1,
@@ -834,10 +899,10 @@ export const getAllClients = async (req, res) => {
     const clientsQuery = Client.find(filter)
       .collation({ locale: "en", strength: 2 }) // ✅ Proper dictionary sorting
       .populate(
-        "companyInfo.country companyInfo.state companyInfo.city companyInfo.pincode"
+        "companyInfo.country companyInfo.state companyInfo.city companyInfo.pincode",
       )
       .populate(
-        "individualInfo.individual_country individualInfo.individual_state individualInfo.individual_city individualInfo.individual_pincode"
+        "individualInfo.individual_country individualInfo.individual_state individualInfo.individual_city individualInfo.individual_pincode",
       )
       .sort(sortObj)
       .skip(skip)
@@ -868,8 +933,8 @@ export const getAllClients = async (req, res) => {
         sort === "az"
           ? "A to Z (by company)"
           : sort === "za"
-          ? "Z to A (by company)"
-          : "Newest first",
+            ? "Z to A (by company)"
+            : "Newest first",
     });
   } catch (err) {
     console.error(err);
@@ -881,7 +946,6 @@ export const getAllClients = async (req, res) => {
   }
 };
 
-
 /**
  * 3️⃣ Get All Members By Client ID (Full)
  */
@@ -890,15 +954,13 @@ export const getAllMemberByClientId = async (req, res) => {
     const { clientId } = req.params;
 
     // 🔐 client can only access their own members
-    if (
-      req.user.role === "client" &&
-      req.user._id.toString() !== clientId
-    ) {
+    if (req.user.role === "client" && req.user._id.toString() !== clientId) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const members = await Member.find({ assignTo: clientId })
-      .populate("country state city pincode");
+    const members = await Member.find({ assignTo: clientId }).populate(
+      "country state city pincode",
+    );
 
     res.json(members);
   } catch (err) {
@@ -913,15 +975,13 @@ export const getAllMemberListByClientId = async (req, res) => {
   try {
     const { clientId } = req.params;
 
-    if (
-      req.user.role === "client" &&
-      req.user._id.toString() !== clientId
-    ) {
+    if (req.user.role === "client" && req.user._id.toString() !== clientId) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const members = await Member.find({ assignTo: clientId })
-      .select("_id firstName lastName email");
+    const members = await Member.find({ assignTo: clientId }).select(
+      "_id firstName lastName email",
+    );
 
     const formatted = members.map((m) => ({
       _id: m._id,
@@ -935,28 +995,29 @@ export const getAllMemberListByClientId = async (req, res) => {
   }
 };
 
-
 // SIGNUP (User / Admin)
 export const signup = async (req, res) => {
   try {
-    const { firstName,
-  lastName,
-  email,
-  phone,
-  role,
-  position,
-  
-  notes,
-  enforcedScheduledJobs,
-  address,
-  streetAddress,
-  country,
-  state,
-  city,
-  pincode,
-  password} = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      role,
+      position,
 
-    if ( !firstName|| !lastName ||!password || (!email && !phone)) {
+      notes,
+      enforcedScheduledJobs,
+      address,
+      streetAddress,
+      country,
+      state,
+      city,
+      pincode,
+      password,
+    } = req.body;
+
+    if (!firstName || !lastName || !password || (!email && !phone)) {
       return res.status(400).json({
         success: false,
         message: "firstName, lastName, password and email or phone required",
@@ -976,21 +1037,21 @@ export const signup = async (req, res) => {
 
     const user = await User.create({
       firstName,
-  lastName,
-  email,
-  phone,
+      lastName,
+      email,
+      phone,
 
-  position,
-  notes,
-  enforcedScheduledJobs,
-  address,
-  streetAddress,
-  country,
-  
-  state,
-  city,
-  pincode,
-  password,
+      position,
+      notes,
+      enforcedScheduledJobs,
+      address,
+      streetAddress,
+      country,
+
+      state,
+      city,
+      pincode,
+      password,
       role: role || "member",
     });
 
@@ -1073,7 +1134,7 @@ export const getProfile = async (req, res) => {
       message: error.message,
     });
   }
-}
+};
 
 //GET ALL USERS (Admin)
 export const getAllUsers = async (req, res) => {
@@ -1114,8 +1175,7 @@ export const getAllUsers = async (req, res) => {
 
     // 🔘 Boolean filter (string → boolean)
     if (enforcedScheduledJobs !== undefined) {
-      filter.enforcedScheduledJobs =
-        enforcedScheduledJobs === "true";
+      filter.enforcedScheduledJobs = enforcedScheduledJobs === "true";
     }
 
     const users = await User.find(filter)
@@ -1140,7 +1200,6 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
-
 
 //GET USER BY ID (Admin)
 export const getUserById = async (req, res) => {
@@ -1201,7 +1260,6 @@ export const updateUser = async (req, res) => {
     });
   }
 };
-
 
 // DELETE USER (Admin)
 export const deleteUser = async (req, res) => {
@@ -1265,12 +1323,11 @@ export const changeUserStatus = async (req, res) => {
 // controllers/inviteController.js
 
 export const getAllInvites = async (req, res) => {
-  
   try {
     const {
       search = "",
-      status = "all",       // "pending" | "accepted" | "all"
-      sort = "newest",      // "newest" | "oldest" | "az" | "za"
+      status = "all", // "pending" | "accepted" | "all"
+      sort = "newest", // "newest" | "oldest" | "az" | "za"
       page = 1,
       limit = 10,
     } = req.query;
@@ -1361,7 +1418,9 @@ export const getInviteById = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid invite ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid invite ID" });
     }
 
     const invite = await Invite.findById(id)
@@ -1372,7 +1431,9 @@ export const getInviteById = async (req, res) => {
       .populate("assignTo", "companyInfo.companyName companyInfo.companyEmail");
 
     if (!invite) {
-      return res.status(404).json({ success: false, message: "Invite not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Invite not found" });
     }
 
     res.json({
@@ -1394,13 +1455,17 @@ export const deleteInvite = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid invite ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid invite ID" });
     }
 
     const invite = await Invite.findByIdAndDelete(id);
 
     if (!invite) {
-      return res.status(404).json({ success: false, message: "Invite not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Invite not found" });
     }
 
     res.json({
@@ -1416,4 +1481,3 @@ export const deleteInvite = async (req, res) => {
     });
   }
 };
-
