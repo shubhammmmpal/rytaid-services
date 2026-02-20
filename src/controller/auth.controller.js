@@ -369,7 +369,9 @@ export const createInvite = async (req, res) => {
       $push: { invites: invite._id },
     });
 
-    const link = `https://api.greyninja.in/inviteMember/${token}`;
+    // const link = `https://api.greyninja.in/inviteMember/${token}`;
+        const link = `http://localhost:5173/inviteMember/${token}`;
+
     console.log(token, link);
     // ✅ SEND EMAIL HERE
     // await sendEmail(

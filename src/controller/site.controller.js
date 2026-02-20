@@ -717,46 +717,77 @@ export const getSiteGraph = async (req, res) => {
 export const changeTaskStatus = async (req, res) => {
   try {
     const { siteId, taskIndex } = req.params;
-    const { status } = req.body; // expecting: "pending" or "completed"
+    const { status } = req.body;
 
-    // Validate status
-    if (!['pending', 'completed'].includes(status)) {
+    // Validate status value
+    if (!status || !['pending', 'completed'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status. Use 'pending' or 'completed'"
+        message: "Invalid or missing status. Allowed: 'pending' or 'completed'"
       });
     }
 
-    const site = await Site.findById(siteId);
-    if (!site) {
-      return res.status(404).json({
-        success: false,
-        message: "Site not found"
-      });
-    }
-
-    // Check if task index is valid
-    const index = parseInt(taskIndex);
-    if (isNaN(index) || index < 0 || index >= site.tasks.length) {
+    const idx = Number(taskIndex);
+    if (isNaN(idx) || idx < 0) {
       return res.status(400).json({
         success: false,
         message: "Invalid task index"
       });
     }
 
-    // Update task status
-    site.tasks[index].status = status;
+    // Find site and update only the specific task status using positional $
+    const updatedSite = await Site.findOneAndUpdate(
+      {
+        _id: siteId,
+        [`tasks.${idx}`]: { $exists: true }  // make sure index exists
+      },
+      {
+        $set: { [`tasks.${idx}.status`]: status }
+      },
+      {
+        new: true,              // return updated document
+        runValidators: true
+      }
+    );
 
-    await site.save();
+    if (!updatedSite) {
+      // Either site not found OR task index doesn't exist
+      const siteExists = await Site.findById(siteId).select('_id').lean();
+      if (!siteExists) {
+        return res.status(404).json({
+          success: false,
+          message: "Site not found"
+        });
+      }
 
-    return res.json({
+      return res.status(400).json({
+        success: false,
+        message: "Task index out of range"
+      });
+    }
+
+    const updatedTask = updatedSite.tasks[idx];
+
+    return res.status(200).json({
       success: true,
       message: "Task status updated successfully",
-      data: site.tasks[index]
+      data: {
+        taskIndex: idx,
+        task: updatedTask
+      }
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Change task status error:", error);
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: "Server error",
