@@ -116,19 +116,23 @@ const clientSchema = new mongoose.Schema(
       individual_country: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
+        default: null,
   
       },
       individual_state: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "State",      
+        ref: "State",   
+        default: null,   
       },
       individual_city: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "City",     
+        ref: "City", 
+        default: null,    
       },
       individual_pincode: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Pincode",     
+        ref: "Pincode", 
+        default: null,    
        },
       individual_note: {
         type: String,

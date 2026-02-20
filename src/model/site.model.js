@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { title } from "process";
 const siteSchema = new mongoose.Schema(
   {
     site_id: {
@@ -61,7 +62,19 @@ const siteSchema = new mongoose.Schema(
       enum: ['pending','approved','rejected'],
       default: 'pending'
     },
-    tasks: [],
+    tasks: [
+      {
+        title: {
+          type: String,
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ['pending','completed'],
+          default: 'pending'
+        }
+      }
+    ],
     
   },
   { timestamps: false }

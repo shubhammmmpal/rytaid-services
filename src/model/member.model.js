@@ -62,9 +62,15 @@ const memberSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// Password hash
 memberSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 10);
 });
+
+// Compare password
+memberSchema.methods.matchPassword = async function (enteredPassword) {
+  return bcrypt.compare(enteredPassword, this.password);
+};
 
 export default mongoose.model("Member", memberSchema);

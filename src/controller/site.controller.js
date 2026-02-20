@@ -2,25 +2,102 @@ import Site  from "../model/site.model.js";
 
 
 /* ================= CREATE SITE ================= */
+// export const createSite = async (req, res) => {
+//   try {
+//     const lastSite = await Site.findOne().sort({ site_id: -1 });
+
+//     const nextSiteId = lastSite ? lastSite.site_id + 1 : 1;
+
+//     const site = await Site.create({
+//       ...req.body,
+//       site_id: nextSiteId,
+//     });
+
+//     res.status(201).json({
+//       message: "Site created successfully",
+//       data: site,
+//     });
+//   } catch (error) {
+//     res.status(400).json({
+//       message: "Failed to create site",
+//       error: error.message,
+//     });
+//   }
+// };
 export const createSite = async (req, res) => {
   try {
-    const lastSite = await Site.findOne().sort({ site_id: -1 });
+    // 1. Get the highest existing site_id
+    const lastSite = await Site.findOne()
+      .sort({ site_id: -1 })
+      .select('site_id')
+      .lean(); // lean = faster, we only need site_id
 
     const nextSiteId = lastSite ? lastSite.site_id + 1 : 1;
 
-    const site = await Site.create({
-      ...req.body,
-      site_id: nextSiteId,
+    // 2. Prepare data – be explicit about allowed fields
+    //    Prevents mass assignment of dangerous/internal fields
+    const allowedFields = [
+      'site_name',
+      'client_id',
+      'address1',
+      'address2',
+      'country_id',
+      'city_id',
+      'state_id',
+      'pincode_id',
+      'latitude',
+      'longitude',
+      'geofancing',     // ← note: typo in schema? → should be geofencing?
+      'notes',
+      'assignedTo',
+      'status',
+      'tasks'
+    ];
+
+    const siteData = {};
+
+    // Only take fields that exist in req.body and are in allowed list
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        siteData[field] = req.body[field];
+      }
     });
 
-    res.status(201).json({
+    // 3. Always set site_id manually
+    siteData.site_id = nextSiteId;
+
+    // Optional: enforce default status if not provided
+    if (!siteData.status) {
+      siteData.status = 'pending';
+    }
+
+    // 4. Create the document
+    const site = await Site.create(siteData);
+
+    // 5. Response
+    return res.status(201).json({
+      success: true,
       message: "Site created successfully",
-      data: site,
+      data: site
     });
+
   } catch (error) {
-    res.status(400).json({
+    // Mongoose validation errors usually have nice messages
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors
+      });
+    }
+
+    console.error("Create site error:", error);
+
+    return res.status(500).json({
+      success: false,
       message: "Failed to create site",
-      error: error.message,
+      error: error.message
     });
   }
 };
@@ -342,30 +419,139 @@ res.status(500).json({
 }
 
 /* ================= UPDATE SITE ================= */
+// export const updateSite = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const site = await Site.findByIdAndUpdate(id, req.body, {
+//       new: true,
+//       runValidators: true,
+//     });
+
+//     if (!site) {
+//       return res.status(404).json({ message: "Site not found" });
+//     }
+
+//     res.json({
+//       message: "Site updated successfully",
+//       data: site,
+//     });
+//   } catch (error) {
+//     res.status(400).json({
+//       message: "Failed to update site",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 export const updateSite = async (req, res) => {
   try {
     const { id } = req.params;
+    let updateData = { ...req.body };
 
-    const site = await Site.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    // Handle task updates (single object or array of changes)
+    if (req.body.tasks) {
+      let taskUpdates = req.body.tasks;
 
-    if (!site) {
-      return res.status(404).json({ message: "Site not found" });
+      // Normalize single object → array
+      if (!Array.isArray(taskUpdates)) {
+        taskUpdates = [taskUpdates];
+      }
+
+      // Fetch current document once
+      const site = await Site.findById(id);
+      if (!site) {
+        return res.status(404).json({
+          success: false,
+          message: 'Site not found',
+        });
+      }
+
+      // Apply changes
+      for (const update of taskUpdates) {
+        const { index, title, status } = update;
+
+        const idx = Number(index);
+        if (isNaN(idx) || idx < 0 || idx >= site.tasks.length) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid or out-of-range task index: ${index}`,
+          });
+        }
+
+        const task = site.tasks[idx];
+
+        if (title !== undefined) {
+          if (task.status !== 'pending') {
+            return res.status(403).json({
+              success: false,
+              message: `Cannot change title of task at index ${idx} — it is not pending`,
+            });
+          }
+          task.title = title;
+        }
+
+        if (status !== undefined) {
+          if (!['pending', 'completed'].includes(status)) {
+            return res.status(400).json({
+              success: false,
+              message: `Invalid status value at index ${idx}: ${status}`,
+            });
+          }
+          task.status = status;
+        }
+      }
+
+      // Assign the modified array → this will be saved
+      updateData.tasks = site.tasks;
+
+      // Do NOT delete updateData.tasks here — we need it!
     }
 
-    res.json({
-      message: "Site updated successfully",
-      data: site,
+    // Execute update
+    const updatedSite = await Site.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedSite) {
+      return res.status(404).json({
+        success: false,
+        message: 'Site not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Site updated successfully',
+      data: updatedSite,
     });
+
   } catch (error) {
-    res.status(400).json({
-      message: "Failed to update site",
+    console.error('Update site error:', error);
+
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update site',
       error: error.message,
     });
   }
-};
+};  
+
 
 /* ================= DELETE SITE ================= */
 export const deleteSite = async (req, res) => {
@@ -523,6 +709,58 @@ export const getSiteGraph = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+
+export const changeTaskStatus = async (req, res) => {
+  try {
+    const { siteId, taskIndex } = req.params;
+    const { status } = req.body; // expecting: "pending" or "completed"
+
+    // Validate status
+    if (!['pending', 'completed'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Use 'pending' or 'completed'"
+      });
+    }
+
+    const site = await Site.findById(siteId);
+    if (!site) {
+      return res.status(404).json({
+        success: false,
+        message: "Site not found"
+      });
+    }
+
+    // Check if task index is valid
+    const index = parseInt(taskIndex);
+    if (isNaN(index) || index < 0 || index >= site.tasks.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid task index"
+      });
+    }
+
+    // Update task status
+    site.tasks[index].status = status;
+
+    await site.save();
+
+    return res.json({
+      success: true,
+      message: "Task status updated successfully",
+      data: site.tasks[index]
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
     });
   }
 };

@@ -9,7 +9,8 @@ import {
   changeSiteStatus,
   getSiteById,
   getAllSiteList,
-  getSiteGraph
+  getSiteGraph,
+  changeTaskStatus,
 } from "../controller/site.controller.js";
 
 const router = express.Router();
@@ -23,4 +24,5 @@ router.get("/:id",protect, getSiteById);
 router.put("/:id",protect, authorize("client","super_admin"), updateSite);              // Edit
 router.delete("/:id",protect, authorize("client","super_admin"), deleteSite);            // Delete
 router.patch("/:id/status",protect, authorize("client","super_admin"), changeSiteStatus); // Change status
+router.patch('/:siteId/tasks-status',changeTaskStatus )
 export default router;

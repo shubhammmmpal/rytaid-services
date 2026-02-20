@@ -18,6 +18,7 @@ const generateToken = (user) => {
 
 export const createClient = async (req, res) => {
   try {
+    
     let companyImg = null;
     let individualImg = null;
 
@@ -528,7 +529,7 @@ export const getAllMembers = async (req, res) => {
     const {
       search = "",
       status = "",
-      sort = "az",
+      sort = "", // default empty (newest first)
       page = 1,
       limit = 10,
     } = req.query;
@@ -540,16 +541,13 @@ export const getAllMembers = async (req, res) => {
     const trimmedSearch = search.trim();
     const regex = trimmedSearch ? new RegExp(trimmedSearch, "i") : null;
 
-    // 🔹 Base match (status only)
+    // Base status filter
     const baseMatch = {};
     if (status && status !== "all") {
       baseMatch.status = status;
     }
 
-    // 🔹 Sorting
-    const sortStage = sort === "za" ? { firstName: -1 } : { firstName: 1 };
-
-    // 🔹 Common lookup stages
+    // ───────────────── Lookup Stages ─────────────────
     const lookupStages = [
       {
         $lookup: {
@@ -590,10 +588,11 @@ export const getAllMembers = async (req, res) => {
         },
       },
       { $unwind: { path: "$pincodeData", preserveNullAndEmptyArrays: true } },
+
       {
         $lookup: {
           from: "clients",
-          let: { clientId: "$assignTo" }, // ✅ CORRECT FIELD NAME
+          let: { clientId: "$assignTo" },
           pipeline: [
             {
               $match: {
@@ -608,49 +607,65 @@ export const getAllMembers = async (req, res) => {
                   email: "$companyInfo.companyEmail",
                   phone: "$companyInfo.companyPhone",
                 },
-                // status: 1
               },
             },
           ],
           as: "clientData",
         },
       },
-      {
-        $unwind: {
-          path: "$clientData",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
+      { $unwind: { path: "$clientData", preserveNullAndEmptyArrays: true } },
     ];
 
-    // 🔹 Search match (including joined fields)
-    const searchMatch = regex
-      ? {
-          $match: {
-            $or: [
-              { firstName: regex },
-              { lastName: regex },
-              { email: regex },
-              { phone: regex },
-              { "cityData.city_name": regex },
-              { "stateData.state_name": regex },
-              { "countryData.country_name": regex },
-              { "pincodeData.code": regex },
-            ],
+    // ───────────────── Search Stage ─────────────────
+    const searchStage = regex
+      ? [
+          {
+            $match: {
+              $or: [
+                { firstName: regex },
+                { lastName: regex },
+                { email: regex },
+                { phone: regex },
+                { "cityData.city_name": regex },
+                { "stateData.state_name": regex },
+                { "countryData.country_name": regex },
+                { "pincodeData.code": regex },
+              ],
+            },
           },
-        }
-      : null;
+        ]
+      : [];
 
-    // 🔹 MAIN DATA PIPELINE
+    // ───────────────── Sort Stage ─────────────────
+    let sortStages = [];
+
+    if (sort==="") {
+      // Default: newest first
+      sortStages = [{ $sort: { createdAt: 1 } }];
+    } else {
+      // Case-insensitive sorting by firstName
+      sortStages = [
+        {
+          $addFields: {
+            firstNameLower: { $toLower: "$firstName" },
+          },
+        },
+        {
+          $sort: {
+            firstNameLower: sort.toLowerCase() === "az" ? 1 : -1,
+          },
+        },
+      ];
+    }
+
+    // ───────────────── Data Pipeline ─────────────────
     const dataPipeline = [
       { $match: baseMatch },
       ...lookupStages,
-      ...(searchMatch ? [searchMatch] : []),
-      { $sort: sortStage },
+      ...searchStage,
+      ...sortStages,
       { $skip: skip },
       { $limit: limitNum },
-
-      // Clean response
       {
         $project: {
           firstName: 1,
@@ -674,18 +689,18 @@ export const getAllMembers = async (req, res) => {
 
     const members = await Member.aggregate(dataPipeline);
 
-    // 🔹 COUNT PIPELINE (IMPORTANT)
+    // ───────────────── Count Pipeline ─────────────────
     const countPipeline = [
       { $match: baseMatch },
       ...lookupStages,
-      ...(searchMatch ? [searchMatch] : []),
+      ...searchStage,
       { $count: "total" },
     ];
 
     const totalResult = await Member.aggregate(countPipeline);
     const total = totalResult[0]?.total || 0;
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       total,
       page: pageNum,
@@ -694,7 +709,7 @@ export const getAllMembers = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Members Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch members",
       error: error.message,
@@ -1080,9 +1095,11 @@ export const signin = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      $or: [{ email }, { phone }],
-    }).select("+password");
+let user =
+  await User.findOne({ $or: [{ email }, { phone }] }).select("+password") ||
+  await Member.findOne({ $or: [{ email }, { phone }] }).select("+password") ||
+  await Client.findOne({ $or: [{ email }, { phone }] }).select("+password");
+
 
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({

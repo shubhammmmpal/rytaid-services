@@ -66,6 +66,7 @@ router.patch(
 router.patch("/:jobId/remove-attachment", removeAttachment);
 
 
+
 // 🔹 Upload Images (before / after)
 // Query param: ?type=before  OR  ?type=after
 // router.patch("/:jobId/upload-images", upload, uploadJobImages);
