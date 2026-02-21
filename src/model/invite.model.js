@@ -50,7 +50,7 @@ const inviteSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "accepted"],
+      enum: ["pending", "Expired"],
       default: "pending",
     },
     assignTo: {

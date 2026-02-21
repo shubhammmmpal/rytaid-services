@@ -312,7 +312,7 @@ export const updateClient = async (req, res) => {
   }
 };
 
-export const createInvite = async (req, res) => {
+export const createInvite = async (req, res) => { 
   try {
     const {
       firstName,
@@ -370,27 +370,27 @@ export const createInvite = async (req, res) => {
     });
 
     // const link = `https://api.greyninja.in/inviteMember/${token}`;
-        const link = `http://localhost:5173/inviteMember/${token}`;
+        const link = `${process.env.FRONTEND_URL}/inviteMember/${token}`;
 
     console.log(token, link);
     // ✅ SEND EMAIL HERE
-    // await sendEmail(
-    //   email,
-    //   "You're Invited to Join 🎉",
-    //   `
-    //   <div style="font-family: Arial, sans-serif;">
-    //     <h2>Hello ${firstName},</h2>
-    //     <p>You have been invited to join our platform.</p>
-    //     <p><strong>Role:</strong> ${role}</p>
-    //     <p>Click below to accept your invite:</p>
-    //     <a href="${link}"
-    //        style="display:inline-block;padding:10px 20px;background:#e11d48;color:white;text-decoration:none;border-radius:6px;">
-    //        Accept Invite
-    //     </a>
-    //     <p>This link will expire in 24 hours.</p>
-    //   </div>
-    //   `
-    // );
+    await sendEmail(
+      email,
+      "You're Invited to Join 🎉",
+      `
+      <div style="font-family: Arial, sans-serif;">
+        <h2>Hello ${firstName},</h2>
+        <p>You have been invited to join our platform.</p>
+        <p><strong>Role:</strong> ${role}</p>
+        <p>Click below to accept your invite:</p>
+        <a href="${link}"
+           style="display:inline-block;padding:10px 20px;background:#e11d48;color:white;text-decoration:none;border-radius:6px;">
+           Accept Invite
+        </a>
+        <p>This link will expire in 24 hours.</p>
+      </div>
+      `
+    );
 
     res.status(201).json({
       message: "Member invite sent successfully",
@@ -405,36 +405,45 @@ export const createInvite = async (req, res) => {
 
 // GET /invite/:token
 export const getInviteByToken = async (req, res) => {
-  const invite = await Invite.findOne({
-    token: req.params.token,
-    expiresAt: { $gt: Date.now() },
-  }).populate("country state city pincode");
+  try {
+    const rawToken = req.params.token;
+    const cleanToken = rawToken.split("&")[0];
 
-  if (!invite) {
-    return res.status(400).json({ message: "Invalid or expired invite" });
+    console.log("TOKEN RECEIVED:", cleanToken);
+
+    const invite = await Invite.findOne({
+      token: cleanToken,
+      expiresAt: { $gt: Date.now() },
+    }).populate("country state city pincode");
+
+    if (!invite) {
+      return res.status(400).json({ message: "Invalid or expired invite" });
+    }
+
+    res.json(invite);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
-
-  res.json(invite); // prefill frontend form
 };
 
+
 export const acceptInvite = async (req, res) => {
-  console.log(req.body);
   try {
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file); // should show buffer, mimetype, originalname, size
+
     const { token, password } = req.body;
-    // console.log(req.body)
-    console.log(token);
 
     if (!token || !password) {
       return res.status(400).json({ message: "Token & password required" });
     }
 
     const invite = await Invite.findOne({ token });
-
     if (!invite) {
       return res.status(400).json({ message: "Invite not found or expired" });
     }
 
-    // 🔐 only allow specific fields to be updated
     const allowedUpdates = {
       firstName: req.body.firstName ?? invite.firstName,
       lastName: req.body.lastName ?? invite.lastName,
@@ -448,32 +457,51 @@ export const acceptInvite = async (req, res) => {
       pincode: req.body.pincode ?? invite.pincode,
     };
 
+    let profileImgUrl = null;
+
+    // Upload to ImageKit if file exists
+    if (req.file) {
+      const uploadResponse = await imagekit.upload({
+        file: req.file.buffer,                    // ← the binary data from memory
+        fileName: `${Date.now()}-${req.file.originalname}`, // unique name
+        // Optional but recommended:
+        folder: "/members/profiles",              // organize in ImageKit folder
+        useUniqueFileName: true,                  // avoids overwrites
+        isPrivateFile: false,
+        tags: ["member", "profile"],
+      });
+
+      console.log("ImageKit upload success:", uploadResponse);
+
+      profileImgUrl = uploadResponse.url;         // this is the public URL you want
+      // OR use uploadResponse.filePath if you prefer transformations later
+    }
+
     const member = new Member({
-      _id: invite._id, // SAME ID
-      email: invite.email, // LOCKED
-      role: invite.role, // LOCKED
-      assignTo: invite.assignTo, // LOCKED
+      _id: invite._id,
+      email: invite.email,
+      role: invite.role,
+      assignTo: invite.assignTo,
       password,
-
       ...allowedUpdates,
-
-      profileImg: req.file ? `/uploads/members/${req.file.filename}` : null,
+      profileImg: profileImgUrl,                  // ← save the ImageKit URL here
     });
 
     await member.save();
-
-    // 🧹 cleanup
     await Invite.deleteOne({ _id: invite._id });
-
-    // await Client.findByIdAndUpdate(invite.assignTo, {
-    //   $pull: { invites: invite._id },
-    // });
 
     res.status(201).json({
       message: "Member account created successfully",
+      // Optional: return the member with image URL
+      member: { ...member.toObject() },
     });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error in acceptInvite:", err);
+    res.status(500).json({ 
+      error: "Server error",
+      details: err.message 
+    });
   }
 };
 
@@ -643,7 +671,7 @@ export const getAllMembers = async (req, res) => {
 
     if (sort==="") {
       // Default: newest first
-      sortStages = [{ $sort: { createdAt: 1 } }];
+      sortStages = [{ $sort: { createdAt: -1 } }];
     } else {
       // Case-insensitive sorting by firstName
       sortStages = [
@@ -1087,7 +1115,9 @@ export const signup = async (req, res) => {
 
 // SIGNIN (email OR phone + password)
 export const signin = async (req, res) => {
+  console.log(req.query)
   try {
+    
     const { email, phone, password } = req.body;
 
     if ((!email && !phone) || !password) {
@@ -1114,11 +1144,17 @@ let user =
       success: true,
       message: "Login successful",
       token: generateToken(user),
+      user:{
+        role: user.role,
+        id: user._id,
+        email: user.email,
+      }
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message,
+
     });
   }
 };
