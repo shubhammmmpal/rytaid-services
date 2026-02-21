@@ -1,5 +1,7 @@
 import  Job  from "../model/job.model.js";
 import imagekit from "../services/imagekit.js";
+import Member from "../model/member.model.js";
+import {Client }from "../model/client.model.js";
 
 /* ================= CREATE JOB ================= */
 export const createJob = async (req, res) => {
@@ -175,7 +177,87 @@ export const getAllJobs = async (req, res) => {
     });
   }
 };
+export const getAllJobsInOrder = async (req, res) => {
+  try {
+    const {
+      status,
+      assignedTo,
+      client,
+      site_id,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 10,
+      sort = "-createdAt", // newest first by default
+    } = req.query;
 
+    // Build filter object
+    const filter = {};
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (assignedTo) {
+      filter.assignedTo = assignedTo;
+    }
+
+    if (client) {
+      filter.client = client;
+    }
+
+    if (site_id) {
+      filter.site_id = { $in: [site_id] }; // since site_id is array
+    }
+
+    if (startDate || endDate) {
+      filter.startDate = {};
+      if (startDate) filter.startDate.$gte = new Date(startDate);
+      if (endDate)   filter.startDate.$lte = new Date(endDate);
+    }
+
+    // Pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    const perPage = Number(limit);
+
+    // Execute query with population
+    const jobs = await Job.find(filter)
+      .populate({
+        path: "assignedTo",
+        select: "firstName lastName email phone profileImg totalworkinghours completedJobsCount",
+      })
+      .populate({
+        path: "client",
+        select: "companyInfo.companyName companyInfo.companyEmail individualInfo.firstName individualInfo.lastName workinghours completedJobsCount",
+      })
+      .populate({
+        path: "site_id",
+        select: "name address", // adjust fields based on your Site model
+      })
+      .sort(sort)
+      .skip(skip)
+      .limit(perPage);
+
+    // Get total count for pagination info
+    const totalJobs = await Job.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: jobs.length,
+      total: totalJobs,
+      totalPages: Math.ceil(totalJobs / perPage),
+      currentPage: Number(page),
+      data: jobs,
+    });
+  } catch (error) {
+    console.error("Get all jobs error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching jobs",
+      error: error.message,
+    });
+  }
+};
 /* ================= GET JOB BY ID ================= */
 export const getJobById = async (req, res) => {
   try {
@@ -207,6 +289,8 @@ export const getJobById = async (req, res) => {
     });
   }
 };
+
+
 
 /* ================= UPDATE JOB ================= */
 
@@ -577,7 +661,7 @@ const activity = await Job.aggregate([
 export const punchInJob = async (req, res) => {
   try {
     const { jobId } = req.params;
-    // const { notes } = req.body;
+    // const { notes } = req.body;   // ← uncomment if you want to use notes later
 
     const job = await Job.findById(jobId);
 
@@ -589,39 +673,48 @@ export const punchInJob = async (req, res) => {
       return res.status(400).json({ message: "Already punched in" });
     }
 
+    // Optional: only allow punch-in if job is in a valid state
+    if (job.status === "complete") {
+      return res.status(400).json({ message: "Cannot punch in — job is already complete" });
+    }
+
     const uploadedImages = [];
 
-    // 🔥 Upload Images if provided
-if (req.files && req.files.images) {
-  for (const file of req.files.images) {
-    const result = await imagekit.upload({
-      file: file.buffer,
-      fileName: file.originalname,
-    });
+    // Upload Images if provided
+    if (req.files && req.files.images) {
+      // Handle case when only one file is uploaded (some multer setups wrap single file differently)
+      const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
 
-    uploadedImages.push(result.url);
-  }
-}
+      for (const file of files) {
+        const result = await imagekit.upload({
+          file: file.buffer,
+          fileName: file.originalname,
+        });
+        uploadedImages.push(result.url);
+      }
+    }
 
-
-    // 🔥 Set Attendance Data
+    // ── Main changes ───────────────────────────────────────
+    job.status = "active";                    // ← Set to active on punch-in
     job.attendance.punchIn.time = new Date();
     job.attendance.punchIn.images = uploadedImages;
 
     // if (notes) {
-    //   job.notes = notes;
+    //   job.notes = notes;   // or job.notes += `\n${notes}` if appending
     // }
 
     await job.save();
 
     res.status(200).json({
-      message: "Punch In successful",
+      message: "Punch In successful – job is now active",
+      status: job.status,
       imagesUploaded: uploadedImages.length,
       punchInTime: job.attendance.punchIn.time,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Punch-in error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -631,7 +724,6 @@ if (req.files && req.files.images) {
 export const punchOutJob = async (req, res) => {
   try {
     const { jobId } = req.params;
-    // const { notes } = req.body;
 
     const job = await Job.findById(jobId);
 
@@ -640,54 +732,99 @@ export const punchOutJob = async (req, res) => {
     }
 
     if (!job.attendance?.punchIn?.time) {
-      return res.status(400).json({ message: "Punch in first" });
+      return res.status(400).json({ message: "Must punch in first" });
     }
 
     // if (job.attendance?.punchOut?.time) {
     //   return res.status(400).json({ message: "Already punched out" });
     // }
 
-    const uploadedImages = [];
-
-    // 🔥 Upload Images if provided
-if (req.files && req.files.images) {
-  for (const file of req.files.images) {
-    const result = await imagekit.upload({
-      file: file.buffer,
-      fileName: file.originalname,
-    });
-
-    uploadedImages.push(result.url);
-  }
-}
-
-
     const punchOutTime = new Date();
+    const diffMs = punchOutTime.getTime() - job.attendance.punchIn.time.getTime();
+    const durationMinutes = Math.floor(diffMs / (1000 * 60));
 
-    job.attendance.punchOut.time = punchOutTime;
+    if (durationMinutes <= 0) {
+      return res.status(400).json({ message: "Invalid duration (punch-out too soon)" });
+    }
+
+    const durationHours = durationMinutes / 60;
+
+    // ── Prepare image upload ─────────────────────────────────────
+    const uploadedImages = [];
+    if (req.files?.images) {
+      const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+      for (const file of files) {
+        const result = await imagekit.upload({
+          file: file.buffer,
+          fileName: file.originalname,
+        });
+        uploadedImages.push(result.url);
+      }
+    }
+
+    // ── Update the Job document ──────────────────────────────────
+    job.attendance.punchOut.time   = punchOutTime;
     job.attendance.punchOut.images = uploadedImages;
-
-    // 🔥 Calculate Duration
-    const diff = punchOutTime - job.attendance.punchIn.time;
-    job.attendance.duration = Math.floor(diff / 1000 / 60);
-
-    // if (notes) {
-    //   job.notes = notes;
-    // }
+    job.attendance.duration        = durationMinutes;
+    job.status                     = "complete";
 
     await job.save();
 
+    // ── Atomic increments for counters & hours (safe & concurrent-proof) ──
+
+    // 1. Update assigned Member
+    const updatedMember = await Member.findByIdAndUpdate(
+      job.assignedTo,
+      {
+        $inc: {
+          totalworkinghours:   durationHours,
+          completedJobsCount:  1
+        }
+      },
+      { new: true, select: "totalworkinghours completedJobsCount" }
+    );
+
+    // 2. Update assigned Client
+    const updatedClient = await Client.findByIdAndUpdate(
+      job.client,
+      {
+        $inc: {
+          workinghours:        durationHours,
+          completedJobsCount:  1
+        }
+      },
+      { new: true, select: "workinghours completedJobsCount" }
+    );
+
     res.status(200).json({
-      message: "Punch Out successful",
-      duration: job.attendance.duration + " minutes",
+      message: "Punch-out successful – job completed, counters & hours updated",
+      jobId: job._id,
+      status: job.status,
+      duration: {
+        minutes: durationMinutes,
+        hours: Number(durationHours.toFixed(2)),
+      },
+      member: {
+        id: job.assignedTo,
+        totalworkinghours:   updatedMember ? Number(updatedMember.totalworkinghours.toFixed(2)) : null,
+        completedJobsCount: updatedMember?.completedJobsCount || 0,
+      },
+      client: {
+        id: job.client,
+        workinghours:        updatedClient ? Number(updatedClient.workinghours.toFixed(2)) : null,
+        completedJobsCount: updatedClient?.completedJobsCount || 0,
+      },
       imagesUploaded: uploadedImages.length,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Punch-out error:", error);
+    res.status(500).json({
+      message: "Server error during punch-out",
+      error: error.message,
+    });
   }
 };
-
 
 
 
@@ -824,6 +961,88 @@ export const removeAttachment = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: error.message,
+    });
+  }
+};
+
+
+
+
+export const getJobsByMemberOrClient = async (req, res) => {
+  try {
+    const {
+      memberId,
+      clientId,
+      status,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    // At least one filter is required
+    if (!memberId && !clientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide at least one of: memberId or clientId",
+      });
+    }
+
+    // Build the query filter
+    const filter = {};
+
+    if (memberId && clientId) {
+      // Both provided → jobs for this member AND this client (intersection)
+      filter.$and = [
+        { assignedTo: memberId },
+        { client: clientId },
+      ];
+    } else if (memberId) {
+      filter.assignedTo = memberId;
+    } else if (clientId) {
+      filter.client = clientId;
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    // Pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    const perPage = Number(limit);
+
+    // Fetch jobs - sorted by updatedAt descending (most recently modified first)
+    const jobs = await Job.find(filter)
+      .populate({
+        path: "assignedTo",
+        select: "firstName lastName email phone profileImg totalworkinghours completedJobsCount",
+      })
+      .populate({
+        path: "client",
+        select: "companyInfo.companyName individualInfo.firstName individualInfo.lastName workinghours completedJobsCount",
+      })
+      .populate({
+        path: "site_id",
+        select: "name address", // adjust based on your Site model
+      })
+      .sort({ updatedAt: -1 })           // ← MOST RECENTLY MODIFIED FIRST
+      .skip(skip)
+      .limit(perPage);
+
+    const total = await Job.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: jobs.length,
+      total,
+      totalPages: Math.ceil(total / perPage),
+      currentPage: Number(page),
+      data: jobs,
+    });
+  } catch (error) {
+    console.error("Get jobs by user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching jobs",
+      error: error.message,
     });
   }
 };

@@ -16,7 +16,8 @@ import {
   punchOutJob,
   updateJobNotes,
   addAfterAttachments,
-  removeAttachment
+  removeAttachment,getAllJobsInOrder
+  ,getJobsByMemberOrClient
 } from "../controller/job.controller.js";
 
 const router = express.Router();
@@ -26,6 +27,9 @@ router.get("/team/activity", getTeamActivity);
 
 router.post("/", protect, authorize("client", "super_admin"), createJob);
 router.get("/", getAllJobs);
+router.get("/allJobs", getAllJobsInOrder);
+router.get("/by-user", getJobsByMemberOrClient);
+
 router.get("/:id", getJobById);
 // router.put("/:id", updateJob);
 router.put(

@@ -761,12 +761,12 @@ export const getMemberById = async (req, res) => {
     }
 
     // 🔐 ownership check
-    if (
-      req.user.role === "client" &&
-      member.assignTo.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Access denied" });
-    }
+    // if (
+    //   req.user.role === "client" &&
+    //   member.assignTo.toString() !== req.user._id.toString()
+    // ) {
+    //   return res.status(403).json({ message: "Access denied" });
+    // }
 
     res.json(member);
   } catch (err) {
@@ -1168,9 +1168,10 @@ export const logout = async (req, res) => {
 };
 
 // GET CURRENT USER PROFILE
-export const getProfile = async (req, res) => {
+export const getProfilebyId = async (req, res) => {
+  const {id} = req.params;
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(id) || await Member.findById(id)|| await Client.findById(id)
 
     if (!user) {
       return res.status(404).json({

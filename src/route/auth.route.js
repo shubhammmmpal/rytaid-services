@@ -2,7 +2,7 @@ import {
   signup,
   signin,
   logout,
-  getProfile,
+   getProfilebyId,
   getAllUsers,
   getUserById,
   updateUser,
@@ -30,7 +30,7 @@ import {
 
   getAllInvites, getInviteById, deleteInvite
 } from "../controller/auth.controller.js";
-import { protect, authorize } from "../middleware/authMiddleware.js";
+import {   authorize } from "../middleware/authMiddleware.js";
 import { Router } from "express";
 import { upload } from "../middleware/upload.js";
 
@@ -40,10 +40,10 @@ const router = Router();
 // Public
 router.post("/signup", signup);
 router.post("/signin", signin);
-router.post("/logout", protect, logout);
+router.post("/logout",   logout);
 router.post(
   "/client",
-  protect,
+   
   authorize("super_admin"),
   upload.fields([
     { name: "companyImg", maxCount: 1 },
@@ -52,9 +52,9 @@ router.post(
   createClient,
 );
 router.post("/login-client", loginClient);
-router.get("/client/:id", protect, getClientById);
-router.delete("/client/:id", protect, deleteClient);
-router.patch("/client-status/:id", protect, changeClientStatus);
+router.get("/client/:id",   getClientById);
+router.delete("/client/:id",   deleteClient);
+router.patch("/client-status/:id",   changeClientStatus);
 router.put(
   "/update-client/:id",
   upload.fields([
@@ -66,7 +66,7 @@ router.put(
 
 router.post(
   "/member",
-  protect,
+   
   authorize("client", "super_admin"),
   createInvite,
 );
@@ -82,19 +82,19 @@ router.post("/signin/member", signinMember);
 /**
  * GET all members
  */
-router.get("/member", protect, authorize("client", "super_admin"), getAllMembers);
+router.get("/member", getAllMembers);
 
 /**
  * GET member by ID
  */
-router.get("/member/profile/:id", protect, authorize("client", "super_admin"), getMemberById);
+router.get("/member/profile/:id",getMemberById);
 
 /**
  * UPDATE member
  */
 router.put(
   "/member/:id",
-  protect,
+   
   // authorize("client", "super_admin"),
   upload.single("profileImg"),
   updateMember,
@@ -105,7 +105,7 @@ router.put(
  */
 router.delete(
   "/member/:id",
-  protect,
+   
   authorize("client", "super_admin"),
   deleteMember,
 );
@@ -115,14 +115,14 @@ router.delete(
  */
 router.get(
   "/clients/list",
-  protect,
+   
   // authorize("super_admin"),
   getAllClientList
 );
 
 router.get(
   "/clients",
-  protect,
+   
   // authorize("super_admin"),
   getAllClients
 );
@@ -132,22 +132,22 @@ router.get(
  */
 router.get(
   "/clients/:clientId/members",
-  protect,
+   
   // authorize("super_admin", "client"),
   getAllMemberByClientId
 );
 
 router.get(
   "/clients/:clientId/members/list",
-  protect,
+   
   // authorize("super_admin", "client"),
   getAllMemberListByClientId
 );
 
-// router.post("/member", protect, authorize("super_admin","user"), createMember);
+// router.post("/member",   authorize("super_admin","user"), createMember);
 
 // Role based APIs
-router.get("/super_admin", protect, authorize("super_admin"), (req, res) => {
+router.get("/super_admin",   authorize("super_admin"), (req, res) => {
   res.json({
     success: true,
     message: "Welcome Admin",
@@ -155,7 +155,7 @@ router.get("/super_admin", protect, authorize("super_admin"), (req, res) => {
   });
 });
 
-// router.get("/member", protect, authorize("member", "super_admin"), (req, res) => {
+// router.get("/member",   authorize("member", "super_admin"), (req, res) => {
 //   res.json({
 //     success: true,
 //     message: "Welcome User",
@@ -163,17 +163,17 @@ router.get("/super_admin", protect, authorize("super_admin"), (req, res) => {
 //   });
 // });
 // Protected Routes
-router.get("/profile", protect, getProfile);
+router.get("/profile/:id",   getProfilebyId);
 
 // Admin Routes
-router.get("/users", protect, authorize("super_admin"), getAllUsers);
-router.get("/user/:userId", protect, authorize("super_admin"), getUserById);
+router.get("/users",  authorize("super_admin"), getAllUsers);
+router.get("/user/:userId",   authorize("super_admin"), getUserById);
 // Additional admin routes for updating and deleting users
-router.put("/user/:userId", protect, authorize("super_admin"), updateUser);
-router.delete("/user/:userId", protect, authorize("super_admin"), deleteUser);
+router.put("/user/:userId",   authorize("super_admin"), updateUser);
+router.delete("/user/:userId",   authorize("super_admin"), deleteUser);
 router.patch(
   "/user/:userId/status",
-  protect,
+   
   authorize("super_admin"),
   changeUserStatus,
 );

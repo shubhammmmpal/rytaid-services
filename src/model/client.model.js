@@ -162,6 +162,16 @@ const clientSchema = new mongoose.Schema(
   
       default: "client",
     },
+    workinghours: {
+      type: Number,
+      default: 0,
+    },
+    completedJobsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    
     invites: [
   {
     type: mongoose.Schema.Types.ObjectId,

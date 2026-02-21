@@ -54,6 +54,15 @@ const memberSchema = new mongoose.Schema(
       ref: "Client",
       // required: true,
     },
+    totalworkinghours: {
+      type: Number,
+      default: 0,
+    },
+    completedJobsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
     password: { type: String, required: true },
 
