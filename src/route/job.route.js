@@ -2,6 +2,7 @@ import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/upload.js";
 
+
 import {
   createJob,
   getAllJobs,
@@ -17,35 +18,37 @@ import {
   updateJobNotes,
   addAfterAttachments,
   removeAttachment,getAllJobsInOrder
-  ,getJobsByMemberOrClient
+  ,getJobsByMemberOrClient,
+  getDashboardData
 } from "../controller/job.controller.js";
 
 const router = express.Router();
-router.get("/graph", getJobGraph);
-router.get("/member-graph", getMemberJobGraph);
-router.get("/team/activity", getTeamActivity);
+router.get("/graph",protect, getJobGraph);
+router.get("/member-graph",protect, getMemberJobGraph);
+router.get("/team/activity",protect, getTeamActivity);
 
-router.post("/", protect, authorize("client", "super_admin"), createJob);
-router.get("/", getAllJobs);
-router.get("/allJobs", getAllJobsInOrder);
-router.get("/by-user", getJobsByMemberOrClient);
+router.post("/", protect, createJob);
+router.get("/",protect, getAllJobs);
+router.get("/allJobs",protect, getAllJobsInOrder);
+router.get("/by-user",protect, getJobsByMemberOrClient);
 
-router.get("/:id", getJobById);
+router.get("/:id",protect, getJobById);
 // router.put("/:id", updateJob);
 router.put(
-  "/:id",
+  "/:id",protect,
   upload.fields([
     { name: "afterPhoto", maxCount: 5 },
     { name: "beofePhoto", maxCount: 5 },
   ]),
   updateJob,
 );
-router.delete("/:id", deleteJob);
-router.patch("/:id/status", changeJobStatus);
+router.delete("/:id",protect, deleteJob);
+router.patch("/:id/status",protect, changeJobStatus);
 
 // 🔹 Punch In
 router.patch(
   "/:jobId/punch-in",
+  protect,
   upload.fields([{ name: "images", maxCount: 5 }]),
   punchInJob,
 );
@@ -53,21 +56,24 @@ router.patch(
 // 🔹 Punch Out
 router.patch(
   "/:jobId/punch-out",
-
+  protect,
   upload.fields([{ name: "images", maxCount: 5 }]),
   punchOutJob,
 );
 
 // 🔹 Update Notes
-router.patch("/:jobId/notes", updateJobNotes);
+router.patch("/:jobId/notes",protect, updateJobNotes);
 
 router.patch(
   "/:jobId/after-attachments",
+  protect,
   upload.array("images", 20),
   addAfterAttachments
 );
 
-router.patch("/:jobId/remove-attachment", removeAttachment);
+router.patch("/:jobId/remove-attachment",protect, removeAttachment);
+
+router.get("/analytics/graph",protect, getDashboardData);
 
 
 

@@ -82,7 +82,6 @@ export const getCountryById = async (req, res) => {
 export const getStatesByCountryId = async (req, res) => {
   try {
     const country_id = Number(req.params.country_id);
-    console.log("country_id:", country_id);
 
     const states = await State.find({ country_id });
 
@@ -109,7 +108,6 @@ export const getStatesByCountryId = async (req, res) => {
 export const getCitiesByStateId = async (req, res) => {
   try {
     const state_id = Number(req.params.state_id);
-    console.log(state_id)
 
     if (isNaN(state_id)) {
       return res.status(400).json({

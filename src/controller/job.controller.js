@@ -2,6 +2,18 @@ import  Job  from "../model/job.model.js";
 import imagekit from "../services/imagekit.js";
 import Member from "../model/member.model.js";
 import {Client }from "../model/client.model.js";
+import {
+  format,
+  startOfDay,
+  endOfDay,
+  subDays,
+  subMonths,
+  eachDayOfInterval,
+  eachWeekOfInterval,
+  eachMonthOfInterval,
+} from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";import mongoose from "mongoose";
+
 
 /* ================= CREATE JOB ================= */
 export const createJob = async (req, res) => {
@@ -297,7 +309,6 @@ export const getJobById = async (req, res) => {
 export const updateJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
-    console.log(req.params)
 
     if (!job) {
       return res.status(404).json({
@@ -916,14 +927,11 @@ export const addAfterAttachments = async (req, res) => {
 
 
 export const removeAttachment = async (req, res) => {
-  console.log("hkahkhsksk")
   try {
     const { jobId } = req.params;
     const { imageName } = req.body; // yaha full URL aayega
 
-    console.log(req.params.jobId)
-    console.log(imageName)
-
+   
     if (!imageName) {
       return res.status(400).json({
         message: "imageName (full URL) is required",
@@ -1047,5 +1055,253 @@ export const getJobsByMemberOrClient = async (req, res) => {
   }
 };
 
+
+
+
+
+// import mongoose from "mongoose";
+// import Job from "../models/Job.js";
+// import Member from "../models/Member.js";
+
+// import {
+//   subDays,
+//   subMonths,
+//   startOfDay,
+//   endOfDay,
+//   eachDayOfInterval,
+//   eachWeekOfInterval,
+//   eachMonthOfInterval,
+//   format,
+// } from "date-fns";
+
+// import { toZonedTime, fromZonedTime } from "date-fns-tz";
+
+const TIMEZONE = "Asia/Kolkata";
+
+/**
+ * GET /api/analytics/graph
+ * Query:
+ *  - clientId OR memberId (required)
+ *  - period = week | month | year
+ */
+
+export const getDashboardData = async (req, res) => {
+  try {
+    const { memberId, clientId, period = "week" } = req.query;
+
+    if (!memberId && !clientId) {
+      return res.status(400).json({
+        success: false,
+        message: "memberId or clientId required",
+      });
+    }
+
+    const targetId = new mongoose.Types.ObjectId(
+      memberId || clientId
+    );
+
+    // ================= DATE RANGE =================
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    let startDate = new Date();
+
+    if (period === "week") {
+      startDate.setDate(today.getDate() - 6);
+    } else if (period === "month") {
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else if (period === "year") {
+      startDate = new Date(today.getFullYear(), 0, 1);
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+
+    const match = {
+      status: "complete",
+      "attendance.punchOut.time": {
+        $gte: startDate,
+        $lte: today,
+      },
+    };
+
+    if (memberId) {
+      match.assignedTo = targetId;
+    } else {
+      match.client = targetId;
+    }
+
+    // ================= FETCH JOBS =================
+    const jobs = await Job.find(match)
+        .populate({
+    path: "assignedTo",
+    select: "firstName lastName", // ✅ only these fields
+  })
+  .populate(
+    {
+      path: "client",
+      select:"companyInfo.Shubham"
+    }
+  )
+  .populate(
+    {
+      path: "site_id",  
+      select: "site_name", // adjust based on your Site model
+    }
+  )
+      .sort({ "attendance.punchOut.time": -1 });
+
+    // ================= SUMMARY =================
+    const totalHours = jobs.reduce(
+      (sum, job) =>
+        sum + (job?.attendance?.duration || 0) / 60,
+      0
+    );
+
+    const totalCompletedJobs = jobs.length;
+
+    // ================= SITES LIST =================
+    const sitesMap = {};
+    jobs.forEach((job) => {
+      if (job.site) {
+        sitesMap[job.site._id] = job.site;
+      }
+    });
+
+    const sites = Object.values(sitesMap);
+
+    // ================= MEMBERS LIST (ONLY FOR CLIENT) =================
+    let members = [];
+
+    if (clientId) {
+      const memberMap = {};
+      jobs.forEach((job) => {
+        if (job.assignedTo) {
+          memberMap[job.assignedTo._id] =
+            job.assignedTo;
+        }
+      });
+      members = Object.values(memberMap);
+    }
+
+    // ================= BREAKDOWN =================
+    let breakdown = [];
+
+    if (period === "week") {
+      const structure = {
+        "1": { label: "Mon", hours: 0, completedJobs: 0 },
+        "2": { label: "Tue", hours: 0, completedJobs: 0 },
+        "3": { label: "Wed", hours: 0, completedJobs: 0 },
+        "4": { label: "Thu", hours: 0, completedJobs: 0 },
+        "5": { label: "Fri", hours: 0, completedJobs: 0 },
+        "6": { label: "Sat", hours: 0, completedJobs: 0 },
+        "7": { label: "Sun", hours: 0, completedJobs: 0 },
+      };
+
+      jobs.forEach((job) => {
+        const day = new Date(
+          job.attendance.punchOut.time
+        ).getDay(); // 0-6
+
+        const map = day === 0 ? "7" : day.toString();
+
+        structure[map].hours +=
+          (job.attendance.duration || 0) / 60;
+        structure[map].completedJobs += 1;
+      });
+
+      breakdown = Object.values(structure);
+    }
+
+    if (period === "month") {
+      const daysInMonth = new Date(
+        today.getFullYear(),
+        today.getMonth() + 1,
+        0
+      ).getDate();
+
+      const structure = {};
+
+      for (let i = 1; i <= daysInMonth; i++) {
+        structure[i] = {
+          label: i.toString(),
+          hours: 0,
+          completedJobs: 0,
+        };
+      }
+
+      jobs.forEach((job) => {
+        const day = new Date(
+          job.attendance.punchOut.time
+        ).getDate();
+
+        structure[day].hours +=
+          (job.attendance.duration || 0) / 60;
+        structure[day].completedJobs += 1;
+      });
+
+      breakdown = Object.values(structure);
+    }
+
+    if (period === "year") {
+      const structure = {
+        0: { label: "Jan", hours: 0, completedJobs: 0 },
+        1: { label: "Feb", hours: 0, completedJobs: 0 },
+        2: { label: "Mar", hours: 0, completedJobs: 0 },
+        3: { label: "Apr", hours: 0, completedJobs: 0 },
+        4: { label: "May", hours: 0, completedJobs: 0 },
+        5: { label: "Jun", hours: 0, completedJobs: 0 },
+        6: { label: "Jul", hours: 0, completedJobs: 0 },
+        7: { label: "Aug", hours: 0, completedJobs: 0 },
+        8: { label: "Sep", hours: 0, completedJobs: 0 },
+        9: { label: "Oct", hours: 0, completedJobs: 0 },
+        10: { label: "Nov", hours: 0, completedJobs: 0 },
+        11: { label: "Dec", hours: 0, completedJobs: 0 },
+      };
+
+      jobs.forEach((job) => {
+        const month = new Date(
+          job.attendance.punchOut.time
+        ).getMonth();
+
+        structure[month].hours +=
+          (job.attendance.duration || 0) / 60;
+        structure[month].completedJobs += 1;
+      });
+
+      breakdown = Object.values(structure);
+    }
+
+    // round hours
+    breakdown = breakdown.map((b) => ({
+      ...b,
+      hours: Number(b.hours.toFixed(2)),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      filter: {
+        type: period,
+        for: memberId ? "member" : "client",
+        id: memberId || clientId,
+        periodStart: startDate,
+        periodEnd: today,
+      },
+      summary: {
+        totalHours: Number(totalHours.toFixed(2)),
+        totalCompletedJobs,
+      },
+      breakdown,
+      jobs,
+      sites,
+      members, // only filled for client
+    });
+  } catch (error) {
+    console.error("Dashboard API error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
 
 

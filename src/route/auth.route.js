@@ -2,7 +2,7 @@ import {
   signup,
   signin,
   logout,
-   getProfilebyId,
+  getProfilebyId,
   getAllUsers,
   getUserById,
   updateUser,
@@ -23,14 +23,15 @@ import {
   updateMember,
   deleteMember,
   signinMember,
-   getAllClientList,
+  getAllClientList,
   getAllClients,
   getAllMemberByClientId,
   getAllMemberListByClientId,
-
-  getAllInvites, getInviteById, deleteInvite
+  getAllInvites,
+  getInviteById,
+  deleteInvite,
 } from "../controller/auth.controller.js";
-import {   authorize } from "../middleware/authMiddleware.js";
+import { authorize, protect } from "../middleware/authMiddleware.js";
 import { Router } from "express";
 import { upload } from "../middleware/upload.js";
 
@@ -38,25 +39,26 @@ const router = Router();
 //
 
 // Public
-router.post("/signup", signup);
-router.post("/signin", signin);
-router.post("/logout",   logout);
+router.post("/signup",  signup);
+router.post("/signin",  signin);
+router.post("/logout",  logout);
 router.post(
   "/client",
-   
-  authorize("super_admin"),
+  protect,
+
   upload.fields([
     { name: "companyImg", maxCount: 1 },
     { name: "individualImg", maxCount: 1 },
   ]),
   createClient,
 );
-router.post("/login-client", loginClient);
-router.get("/client/:id",   getClientById);
-router.delete("/client/:id",   deleteClient);
-router.patch("/client-status/:id",   changeClientStatus);
+router.post("/login-client", protect, loginClient);
+router.get("/client/:id", protect, getClientById);
+router.delete("/client/:id", protect, deleteClient);
+router.patch("/client-status/:id", protect, changeClientStatus);
 router.put(
   "/update-client/:id",
+  protect,
   upload.fields([
     { name: "companyImg", maxCount: 1 },
     { name: "individualImg", maxCount: 1 },
@@ -66,35 +68,35 @@ router.put(
 
 router.post(
   "/member",
-   
-  authorize("client", "super_admin"),
+
   createInvite,
 );
-router.get("/member/:token",  getInviteByToken);
+router.get("/member/:token", getInviteByToken);
 router.post(
   "/member/accept",
-  
+
   upload.single("profileImg"),
   acceptInvite,
 );
-router.post("/signin/member", signinMember);
+router.post("/signin/member", protect, signinMember);
 
 /**
  * GET all members
  */
-router.get("/member", getAllMembers);
+router.get("/member", protect, getAllMembers);
 
 /**
  * GET member by ID
  */
-router.get("/member/profile/:id",getMemberById);
+router.get("/member/profile/:id", protect, getMemberById);
 
 /**
  * UPDATE member
  */
 router.put(
   "/member/:id",
-   
+  protect,
+
   // authorize("client", "super_admin"),
   upload.single("profileImg"),
   updateMember,
@@ -105,8 +107,8 @@ router.put(
  */
 router.delete(
   "/member/:id",
-   
-  authorize("client", "super_admin"),
+
+  protect,
   deleteMember,
 );
 
@@ -115,16 +117,16 @@ router.delete(
  */
 router.get(
   "/clients/list",
-   
-  // authorize("super_admin"),
-  getAllClientList
+
+  protect,
+  getAllClientList,
 );
 
 router.get(
   "/clients",
-   
-  // authorize("super_admin"),
-  getAllClients
+
+  protect,
+  getAllClients,
 );
 
 /**
@@ -132,22 +134,22 @@ router.get(
  */
 router.get(
   "/clients/:clientId/members",
-   
-  // authorize("super_admin", "client"),
-  getAllMemberByClientId
+
+  protect,
+  getAllMemberByClientId,
 );
 
 router.get(
   "/clients/:clientId/members/list",
-   
-  // authorize("super_admin", "client"),
-  getAllMemberListByClientId
+
+  protect,
+  getAllMemberListByClientId,
 );
 
 // router.post("/member",   authorize("super_admin","user"), createMember);
 
 // Role based APIs
-router.get("/super_admin",   authorize("super_admin"), (req, res) => {
+router.get("/super_admin", protect, (req, res) => {
   res.json({
     success: true,
     message: "Welcome Admin",
@@ -163,28 +165,28 @@ router.get("/super_admin",   authorize("super_admin"), (req, res) => {
 //   });
 // });
 // Protected Routes
-router.get("/profile/:id",   getProfilebyId);
+router.get("/profile/:id", protect, getProfilebyId);
 
 // Admin Routes
-router.get("/users",  authorize("super_admin"), getAllUsers);
-router.get("/user/:userId",   authorize("super_admin"), getUserById);
+router.get("/users", protect, getAllUsers);
+router.get("/user/:userId", protect, getUserById);
 // Additional admin routes for updating and deleting users
-router.put("/user/:userId",   authorize("super_admin"), updateUser);
-router.delete("/user/:userId",   authorize("super_admin"), deleteUser);
+router.put("/user/:userId", protect, updateUser);
+router.delete("/user/:userId", protect, deleteUser);
 router.patch(
   "/user/:userId/status",
-   
-  authorize("super_admin"),
+
+  protect,
   changeUserStatus,
 );
 
 // GET all invites with filters & pagination
-router.get("/invite", getAllInvites);
+router.get("/invite", protect, getAllInvites);
 
 // GET single invite by ID
-router.get("/invite/:id", getInviteById);
+router.get("/invite/:id", protect, getInviteById);
 
 // DELETE invite by ID
-router.delete("/invite/:id", deleteInvite);
+router.delete("/invite/:id", protect, deleteInvite);
 
 export default router;

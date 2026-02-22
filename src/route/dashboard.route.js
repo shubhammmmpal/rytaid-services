@@ -8,6 +8,8 @@ import Job from '../model/job.model.js'
 import Site  from'../model/site.model.js';
 import Member  from'../model/member.model.js';
 import {Client}  from'../model/client.model.js';
+import { protect } from "../middleware/authMiddleware.js";
+
 
 // Helper → last N days range
 function getDateRange(days = 30) {
@@ -22,7 +24,7 @@ function getDateRange(days = 30) {
 // ───────────────────────────────────────────────
 
 // GET /api/dashboard/jobs/overview?days=30&clientId=...
-router.get('/jobs/overview', async (req, res) => {
+router.get('/jobs/overview',protect, async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 30;
     const clientId = req.query.clientId;
@@ -65,7 +67,7 @@ router.get('/jobs/overview', async (req, res) => {
 });
 
 // GET /api/dashboard/jobs/recent?limit=8&status=approved&clientId=...
-router.get('/jobs/recent', async (req, res) => {
+router.get('/jobs/recent',protect, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 8;
     const query = {};
@@ -96,7 +98,7 @@ router.get('/jobs/recent', async (req, res) => {
 //  SITES PANEL  (very similar)
 // ───────────────────────────────────────────────
 
-router.get('/sites/overview', async (req, res) => {
+router.get('/sites/overview',protect, async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 30;
     const clientId = req.query.clientId;
@@ -136,7 +138,7 @@ router.get('/sites/overview', async (req, res) => {
   }
 });
 
-router.get('/sites/recent', async (req, res) => {
+router.get('/sites/recent',protect, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 6;
     const query = {};
@@ -165,7 +167,7 @@ router.get('/sites/recent', async (req, res) => {
 //  TEAM ACTIVITY PANEL  (simplest version first)
 // ───────────────────────────────────────────────
 
-router.get('/team/overview', async (req, res) => {
+router.get('/team/overview',protect, async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 7;
 

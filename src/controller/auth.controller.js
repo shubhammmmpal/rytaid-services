@@ -87,7 +87,6 @@ export const loginClient = async (req, res) => {
         { "individualInfo.email": email },
       ],
     });
-    console.log(client);
 
     if (!client) {
       return res.status(401).json({
@@ -110,7 +109,7 @@ export const loginClient = async (req, res) => {
     const token = jwt.sign(
       { id: client._id, role: client.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" },
+      
     );
 
     res.status(200).json({
@@ -256,7 +255,6 @@ export const changeClientStatus = async (req, res) => {
 };
 
 export const updateClient = async (req, res) => {
-  console.log(req.body, "bkbkkbkbkb", req.file);
   try {
     const client = await Client.findById(req.params.id);
 
@@ -372,7 +370,6 @@ export const createInvite = async (req, res) => {
     // const link = `https://api.greyninja.in/inviteMember/${token}`;
         const link = `${process.env.FRONTEND_URL}/inviteMember/${token}`;
 
-    console.log(token, link);
     // ✅ SEND EMAIL HERE
     await sendEmail(
       email,
@@ -409,7 +406,6 @@ export const getInviteByToken = async (req, res) => {
     const rawToken = req.params.token;
     const cleanToken = rawToken.split("&")[0];
 
-    console.log("TOKEN RECEIVED:", cleanToken);
 
     const invite = await Invite.findOne({
       token: cleanToken,
@@ -430,8 +426,6 @@ export const getInviteByToken = async (req, res) => {
 
 export const acceptInvite = async (req, res) => {
   try {
-    console.log("BODY:", req.body);
-    console.log("FILE:", req.file); // should show buffer, mimetype, originalname, size
 
     const { token, password } = req.body;
 
@@ -471,7 +465,6 @@ export const acceptInvite = async (req, res) => {
         tags: ["member", "profile"],
       });
 
-      console.log("ImageKit upload success:", uploadResponse);
 
       profileImgUrl = uploadResponse.url;         // this is the public URL you want
       // OR use uploadResponse.filePath if you prefer transformations later
@@ -1115,7 +1108,6 @@ export const signup = async (req, res) => {
 
 // SIGNIN (email OR phone + password)
 export const signin = async (req, res) => {
-  console.log(req.query)
   try {
     
     const { email, phone, password } = req.body;

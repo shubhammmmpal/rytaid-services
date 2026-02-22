@@ -21,8 +21,8 @@ router.post("/",protect, createSite);                // Create
 router.get("/",protect, getSites);                   // Get with search & filters
 router.get("/sites",protect, getAllSiteList); 
 router.get("/:id",protect, getSiteById);
-router.put("/:id",protect, authorize("client","super_admin"), updateSite);              // Edit
-router.delete("/:id",protect, authorize("client","super_admin"), deleteSite);            // Delete
-router.patch("/:id/status",protect, authorize("client","super_admin"), changeSiteStatus); // Change status
+router.put("/:id",protect, updateSite);              // Edit
+router.delete("/:id",protect, deleteSite);            // Delete
+router.patch("/:id/status",protect, changeSiteStatus); // Change status
 router.patch('/:siteId/tasks/:taskIndex/status',changeTaskStatus )
 export default router;
