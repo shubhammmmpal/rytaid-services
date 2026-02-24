@@ -29,6 +29,7 @@ export const protect = (req, res, next) => {
 
     // 3. Attach user info to request (you'll usually fetch full user from DB here)
     req.user = decoded; // { id, role, email, ... }
+    console.log("Authenticated user:", req.user);
 
     next(); // User is authenticated → proceed
   } catch (err) {

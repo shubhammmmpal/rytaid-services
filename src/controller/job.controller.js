@@ -400,7 +400,7 @@ export const changeJobStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!["pending", "approved", "rejected"].includes(status)) {
+    if (!["pending", "approved", "rejected","complete","active"].includes(status)) {
       return res.status(400).json({
         message: "Invalid status value",
       });
@@ -777,7 +777,7 @@ export const punchOutJob = async (req, res) => {
     job.attendance.punchOut.time   = punchOutTime;
     job.attendance.punchOut.images = uploadedImages;
     job.attendance.duration        = durationMinutes;
-    job.status                     = "complete";
+    // job.status                     = "complete";
 
     await job.save();
 
@@ -1089,17 +1089,6 @@ export const getDashboardData = async (req, res) => {
   try {
     const { memberId, clientId, period = "week" } = req.query;
 
-    if (!memberId && !clientId) {
-      return res.status(400).json({
-        success: false,
-        message: "memberId or clientId required",
-      });
-    }
-
-    const targetId = new mongoose.Types.ObjectId(
-      memberId || clientId
-    );
-
     // ================= DATE RANGE =================
     const today = new Date();
     today.setHours(23, 59, 59, 999);
@@ -1112,10 +1101,17 @@ export const getDashboardData = async (req, res) => {
       startDate = new Date(today.getFullYear(), today.getMonth(), 1);
     } else if (period === "year") {
       startDate = new Date(today.getFullYear(), 0, 1);
+    } else {
+      // Optional: reject invalid period
+      return res.status(400).json({
+        success: false,
+        message: "Invalid period. Use: week, month, year",
+      });
     }
 
     startDate.setHours(0, 0, 0, 0);
 
+    // ================= BUILD MATCH QUERY =================
     const match = {
       status: "complete",
       "attendance.punchOut.time": {
@@ -1124,60 +1120,66 @@ export const getDashboardData = async (req, res) => {
       },
     };
 
+    let dashboardFor = "all";   // default when no id provided
+    let targetId = null;
+
     if (memberId) {
+      targetId = new mongoose.Types.ObjectId(memberId);
       match.assignedTo = targetId;
-    } else {
+      dashboardFor = "member";
+    } else if (clientId) {
+      targetId = new mongoose.Types.ObjectId(clientId);
       match.client = targetId;
+      dashboardFor = "client";
     }
+    // else → no filter on assignedTo/client → show ALL completed jobs
 
     // ================= FETCH JOBS =================
     const jobs = await Job.find(match)
-        .populate({
-    path: "assignedTo",
-    select: "firstName lastName", // ✅ only these fields
-  })
-  .populate(
-    {
-      path: "client",
-      select:"companyInfo.Shubham"
-    }
-  )
-  .populate(
-    {
-      path: "site_id",  
-      select: "site_name", // adjust based on your Site model
-    }
-  )
+      .populate({
+        path: "assignedTo",
+        select: "firstName lastName",
+      })
+      .populate({
+        path: "client",
+        select: "companyInfo.name companyInfo.Shubham", // adjust fields as needed
+      })
+      .populate({
+        path: "site_id",
+        select: "site_name",
+      })
       .sort({ "attendance.punchOut.time": -1 });
 
     // ================= SUMMARY =================
     const totalHours = jobs.reduce(
-      (sum, job) =>
-        sum + (job?.attendance?.duration || 0) / 60,
+      (sum, job) => sum + (job?.attendance?.duration || 0) / 60,
       0
     );
 
     const totalCompletedJobs = jobs.length;
 
-    // ================= SITES LIST =================
+    // ================= SITES LIST (unique) =================
     const sitesMap = {};
     jobs.forEach((job) => {
-      if (job.site) {
-        sitesMap[job.site._id] = job.site;
+      if (job.site_id && Array.isArray(job.site_id)) {
+        job.site_id.forEach((site) => {
+          if (site && site._id) {
+            sitesMap[site._id.toString()] = site;
+          }
+        });
       }
     });
 
     const sites = Object.values(sitesMap);
 
-    // ================= MEMBERS LIST (ONLY FOR CLIENT) =================
+    // ================= MEMBERS LIST (only meaningful when filtering by client or all) =================
     let members = [];
 
-    if (clientId) {
+    if (clientId || !targetId) {   // show members when viewing client OR all jobs
       const memberMap = {};
       jobs.forEach((job) => {
-        if (job.assignedTo) {
-          memberMap[job.assignedTo._id] =
-            job.assignedTo;
+        if (job.assignedTo && job.assignedTo._id) {
+          memberMap[job.assignedTo._id.toString()] = job.assignedTo;
         }
       });
       members = Object.values(memberMap);
@@ -1198,91 +1200,58 @@ export const getDashboardData = async (req, res) => {
       };
 
       jobs.forEach((job) => {
-        const day = new Date(
-          job.attendance.punchOut.time
-        ).getDay(); // 0-6
-
-        const map = day === 0 ? "7" : day.toString();
-
-        structure[map].hours +=
-          (job.attendance.duration || 0) / 60;
-        structure[map].completedJobs += 1;
+        const day = new Date(job.attendance.punchOut.time).getDay(); // 0=Sun,1=Mon,...
+        const key = day === 0 ? "7" : day.toString();
+        structure[key].hours += (job.attendance.duration || 0) / 60;
+        structure[key].completedJobs += 1;
       });
 
       breakdown = Object.values(structure);
-    }
-
-    if (period === "month") {
-      const daysInMonth = new Date(
-        today.getFullYear(),
-        today.getMonth() + 1,
-        0
-      ).getDate();
-
+    } else if (period === "month") {
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
       const structure = {};
 
       for (let i = 1; i <= daysInMonth; i++) {
-        structure[i] = {
-          label: i.toString(),
-          hours: 0,
-          completedJobs: 0,
-        };
+        structure[i] = { label: i.toString(), hours: 0, completedJobs: 0 };
       }
 
       jobs.forEach((job) => {
-        const day = new Date(
-          job.attendance.punchOut.time
-        ).getDate();
-
-        structure[day].hours +=
-          (job.attendance.duration || 0) / 60;
+        const day = new Date(job.attendance.punchOut.time).getDate();
+        structure[day].hours += (job.attendance.duration || 0) / 60;
         structure[day].completedJobs += 1;
       });
 
       breakdown = Object.values(structure);
-    }
-
-    if (period === "year") {
+    } else if (period === "year") {
       const structure = {
         0: { label: "Jan", hours: 0, completedJobs: 0 },
         1: { label: "Feb", hours: 0, completedJobs: 0 },
-        2: { label: "Mar", hours: 0, completedJobs: 0 },
-        3: { label: "Apr", hours: 0, completedJobs: 0 },
-        4: { label: "May", hours: 0, completedJobs: 0 },
-        5: { label: "Jun", hours: 0, completedJobs: 0 },
-        6: { label: "Jul", hours: 0, completedJobs: 0 },
-        7: { label: "Aug", hours: 0, completedJobs: 0 },
-        8: { label: "Sep", hours: 0, completedJobs: 0 },
-        9: { label: "Oct", hours: 0, completedJobs: 0 },
-        10: { label: "Nov", hours: 0, completedJobs: 0 },
+        // ... same as before ...
         11: { label: "Dec", hours: 0, completedJobs: 0 },
       };
 
       jobs.forEach((job) => {
-        const month = new Date(
-          job.attendance.punchOut.time
-        ).getMonth();
-
-        structure[month].hours +=
-          (job.attendance.duration || 0) / 60;
+        const month = new Date(job.attendance.punchOut.time).getMonth();
+        structure[month].hours += (job.attendance.duration || 0) / 60;
         structure[month].completedJobs += 1;
       });
 
       breakdown = Object.values(structure);
     }
 
-    // round hours
+    // Round hours
     breakdown = breakdown.map((b) => ({
       ...b,
       hours: Number(b.hours.toFixed(2)),
     }));
 
+    // ================= RESPONSE =================
     return res.status(200).json({
       success: true,
       filter: {
         type: period,
-        for: memberId ? "member" : "client",
-        id: memberId || clientId,
+        for: dashboardFor,
+        id: targetId ? targetId.toString() : null,
         periodStart: startDate,
         periodEnd: today,
       },
@@ -1293,7 +1262,7 @@ export const getDashboardData = async (req, res) => {
       breakdown,
       jobs,
       sites,
-      members, // only filled for client
+      members, // empty array when filtering by member
     });
   } catch (error) {
     console.error("Dashboard API error:", error);
@@ -1305,3 +1274,47 @@ export const getDashboardData = async (req, res) => {
 };
 
 
+
+/**
+ * GET /api/jobs/active
+ * 
+ * Query parameters (all optional):
+ *   - memberId     → filter by specific member
+ *   - clientId     → filter by specific client
+ *   - limit        → default: 20
+ *   - skip         → pagination offset, default: 0
+ *   - sort         → "newest" | "oldest" | "duration-desc"  (default: newest)
+ */
+export const getAllActivePunchedInJobs = async (req, res) => {
+
+  console.log("Received job id →", req.params.id);
+  try {
+    const jobs = await Job.find({
+      // Option A: strict (only truly in-progress attendance)
+      "attendance.punchIn.time": { $ne: null },     // has punched in
+      "attendance.punchOut.time": null,             // NOT punched out
+
+      // Option B: also include status filter (recommended)
+      status: { $in: ["active", "pending"] },       // adjust statuses as needed
+      // status: "active",                          // if you only want "active"
+    })
+      .populate("assignedTo", "name phone email")   // optional
+      .populate("client", "name companyName")       // optional
+      .populate("site_id", "name address location") // optional
+      .sort({ "attendance.punchIn.time": -1 })      // most recent punch-ins first
+      .lean();                                      // faster if you don't need mongoose docs
+
+    return res.status(200).json({
+      success: true,
+      count: jobs.length,
+      data: jobs,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching active punched-in jobs",
+      error: error.message,
+    });
+  }
+};

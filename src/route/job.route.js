@@ -19,10 +19,12 @@ import {
   addAfterAttachments,
   removeAttachment,getAllJobsInOrder
   ,getJobsByMemberOrClient,
-  getDashboardData
+  getDashboardData,getAllActivePunchedInJobs
 } from "../controller/job.controller.js";
 
 const router = express.Router();
+router.get("/active",protect, getAllActivePunchedInJobs);
+
 router.get("/graph",protect, getJobGraph);
 router.get("/member-graph",protect, getMemberJobGraph);
 router.get("/team/activity",protect, getTeamActivity);

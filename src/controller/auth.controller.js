@@ -325,21 +325,23 @@ export const createInvite = async (req, res) => {
       state,
       city,
       pincode,
-      assignTo: assignToFromBody,
+      assignTo,
+      // : assignToFromBody,
     } = req.body;
 
-    let assignTo;
+    // let assignTo;
+    // console.log(req.user.role)
 
-    if (req.user.role === "client") {
-      assignTo = req.user._id;
-    } else if (req.user.role === "super_admin") {
-      if (!assignToFromBody) {
-        return res
-          .status(400)
-          .json({ message: "Client ID is required for assignment" });
-      }
-      assignTo = assignToFromBody;
-    }
+    // if (req.user.role === "client") {
+    //   assignTo = req.user._id;
+    // } else if (req.user.role === "super_admin") {
+    //   if (!assignToFromBody) {
+    //     return res
+    //       .status(400)
+    //       .json({ message: "Client ID is required for assignment" });
+    //   }
+    //   assignTo = assignToFromBody;
+    // }
 
     const token = crypto.randomBytes(32).toString("hex");
     const inviteId = new mongoose.Types.ObjectId();
@@ -1108,6 +1110,7 @@ export const signup = async (req, res) => {
 
 // SIGNIN (email OR phone + password)
 export const signin = async (req, res) => {
+  console.log(res.headers)
   try {
     
     const { email, phone, password } = req.body;
@@ -1132,10 +1135,22 @@ let user =
       });
     }
 
+    // const isMatch =
+    //   (await user.comparePassword?.(password)) ||
+    //   (await (
+    //     await import("bcryptjs")
+    //   ).default.compare(password, member.password));
+
+    // if (!isMatch) {
+    //   return res.status(401).json({ message: "Invalid credentials" });
+    // }
+
+    const token = generateToken(user._id, user.role);
+
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token: generateToken(user),
+      token,
       user:{
         role: user.role,
         id: user._id,
