@@ -433,80 +433,82 @@ export const changeJobStatus = async (req, res) => {
 
 export const getJobGraph = async (req, res) => {
   try {
-    const { filter } = req.query; 
-    // filter = day | week | month
-    // default = month
-
+    const { filter } = req.query;
     const now = new Date();
-    let matchStage = {};
-    let groupStage = {};
+
     let startDate;
+    let format;
+    let labels = [];
 
-    // 🔹 DEFAULT → LAST 1 MONTH (4 WEEKS)
-   if (!filter || filter === "month") {
-  startDate = new Date();
-  startDate.setDate(now.getDate() - 28);
-
-  matchStage = {
-    createdAt: { $gte: startDate }
-  };
-
-  groupStage = {
-    _id: {
-      year: { $year: "$createdAt" },
-      week: { $isoWeek: "$createdAt" }
-    },
-    totalJobs: { $sum: 1 }
-  };
-}
-
-
-    // 🔹 DAY WISE (Last 7 Days)
+    // ================= DAY (Last 7 Days) =================
     if (filter === "day") {
       startDate = new Date();
-      startDate.setDate(now.getDate() - 7);
-
-      matchStage = {
-        createdAt: { $gte: startDate }
-      };
-
-      groupStage = {
-        _id: {
-          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
-        },
-        totalJobs: { $sum: 1 }
-      };
+      startDate.setDate(now.getDate() - 6); // last 7 days including today
+      format = "%Y-%m-%d";
     }
 
-    // 🔹 WEEK WISE (Last 8 Weeks)
-   if (filter === "week") {
-  startDate = new Date();
-  startDate.setDate(now.getDate() - 56);
+    // ================= MONTH (Last 1 Month Rolling) =================
+    else if (filter === "month" || !filter) {
+      startDate = new Date();
+      startDate.setMonth(now.getMonth() - 1);
+      format = "%Y-%m-%d";
+    }
 
-  matchStage = {
-    createdAt: { $gte: startDate }
-  };
-
-  groupStage = {
-    _id: {
-      year: { $year: "$createdAt" },
-      week: { $isoWeek: "$createdAt" }
-    },
-    totalJobs: { $sum: 1 }
-  };
-}
-
+    // ================= YEAR (Last 12 Months) =================
+    else if (filter === "year") {
+      startDate = new Date();
+      startDate.setFullYear(now.getFullYear() - 1);
+      format = "%Y-%m";
+    }
 
     const jobs = await Job.aggregate([
-      { $match: matchStage },
-      { $group: groupStage },
+      {
+        $match: {
+          createdAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: format, date: "$createdAt" }
+          },
+          completedJobs: { $sum: 1 }
+        }
+      },
       { $sort: { _id: 1 } }
     ]);
+
+    // ================= BUILD FULL RANGE =================
+    let breakdownMap = {};
+
+    jobs.forEach(item => {
+      breakdownMap[item._id] = item.completedJobs;
+    });
+
+    let current = new Date(startDate);
+    let breakdown = [];
+
+    while (current <= now) {
+      let key;
+
+      if (filter === "year") {
+        key = current.toISOString().slice(0, 7); // YYYY-MM
+        current.setMonth(current.getMonth() + 1);
+      } else {
+        key = current.toISOString().slice(0, 10); // YYYY-MM-DD
+        current.setDate(current.getDate() + 1);
+      }
+
+      breakdown.push({
+        label: key,
+        completedJobs: breakdownMap[key] || 0
+      });
+    }
 
     res.status(200).json({
       success: true,
       filter: filter || "month",
-      data: jobs
+      breakdown
     });
 
   } catch (error) {
@@ -784,16 +786,16 @@ export const punchOutJob = async (req, res) => {
     // ── Atomic increments for counters & hours (safe & concurrent-proof) ──
 
     // 1. Update assigned Member
-    const updatedMember = await Member.findByIdAndUpdate(
-      job.assignedTo,
-      {
-        $inc: {
-          totalworkinghours:   durationHours,
-          completedJobsCount:  1
-        }
-      },
-      { new: true, select: "totalworkinghours completedJobsCount" }
-    );
+    // const updatedMember = await Member.findByIdAndUpdate(
+    //   job.assignedTo,
+    //   {
+    //     $inc: {
+    //       totalworkinghours:   durationHours,
+    //       completedJobsCount:  1
+    //     }
+    //   },
+    //   { new: true, select: "totalworkinghours completedJobsCount" }
+    // );
 
     // 2. Update assigned Client
     const updatedClient = await Client.findByIdAndUpdate(
@@ -815,11 +817,11 @@ export const punchOutJob = async (req, res) => {
         minutes: durationMinutes,
         hours: Number(durationHours.toFixed(2)),
       },
-      member: {
-        id: job.assignedTo,
-        totalworkinghours:   updatedMember ? Number(updatedMember.totalworkinghours.toFixed(2)) : null,
-        completedJobsCount: updatedMember?.completedJobsCount || 0,
-      },
+      // member: {
+      //   id: job.assignedTo,
+      //   totalworkinghours:   updatedMember ? Number(updatedMember.totalworkinghours.toFixed(2)) : null,
+      //   completedJobsCount: updatedMember?.completedJobsCount || 0,
+      // },
       client: {
         id: job.client,
         workinghours:        updatedClient ? Number(updatedClient.workinghours.toFixed(2)) : null,
@@ -1287,7 +1289,7 @@ export const getDashboardData = async (req, res) => {
  */
 export const getAllActivePunchedInJobs = async (req, res) => {
 
-  console.log("Received job id →", req.params.id);
+  
   try {
     const jobs = await Job.find({
       // Option A: strict (only truly in-progress attendance)
@@ -1298,7 +1300,7 @@ export const getAllActivePunchedInJobs = async (req, res) => {
       status: { $in: ["active", "pending"] },       // adjust statuses as needed
       // status: "active",                          // if you only want "active"
     })
-      .populate("assignedTo", "name phone email")   // optional
+      .populate("assignedTo", "firstName lastName phone email")   // optional
       .populate("client", "name companyName")       // optional
       .populate("site_id", "name address location") // optional
       .sort({ "attendance.punchIn.time": -1 })      // most recent punch-ins first

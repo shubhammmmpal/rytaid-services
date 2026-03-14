@@ -30,6 +30,9 @@ import {
   getAllInvites,
   getInviteById,
   deleteInvite,
+  clockIn,
+  clockOut,
+  getActiveMembers,
 } from "../controller/auth.controller.js";
 import { authorize, protect } from "../middleware/authMiddleware.js";
 import { Router } from "express";
@@ -111,6 +114,11 @@ router.delete(
   protect,
   deleteMember,
 );
+
+router.post("/clock-in", clockIn);
+router.post("/clock-out", clockOut);
+router.get("/active-members", getActiveMembers);
+
 
 /**
  * CLIENT APIs

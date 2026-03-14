@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import imagekit from "../services/imagekit.js";
 import { sendEmail } from "../services/sendEmail.js";
 import { count } from "console";
+import WorkSession from "../model/workSession.model.js";
 
 // 🔑 Generate Token
 const generateToken = (user) => {
@@ -1541,6 +1542,117 @@ export const deleteInvite = async (req, res) => {
       success: false,
       message: "Failed to delete invite",
       error: err.message,
+    });
+  }
+};
+export const clockIn = async (req, res) => {
+  try {
+
+    const { memberId } = req.body;
+
+    const member = await Member.findById(memberId);
+
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    const activeSession = await WorkSession.findOne({
+      member: memberId,
+      status: "active",
+    });
+
+    if (activeSession) {
+      return res.status(400).json({
+        message: "Member already clocked in",
+      });
+    }
+
+    const session = await WorkSession.create({
+      member: memberId,
+      clockIn: new Date(),
+    });
+
+    member.status = "active";
+    await member.save();
+
+    res.json({
+      status: true,
+      message: "Clock In successful",
+      data: session,
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+export const clockOut = async (req, res) => {
+  try {
+
+    const { memberId } = req.body;
+
+    const session = await WorkSession.findOne({
+      member: memberId,
+      status: "active",
+    });
+
+    if (!session) {
+      return res.status(400).json({
+        message: "No active session found",
+      });
+    }
+
+    const clockOutTime = new Date();
+
+    const durationMs = clockOutTime - session.clockIn;
+
+    const durationMinutes = Math.floor(durationMs / 60000);
+
+    session.clockOut = clockOutTime;
+    session.duration = durationMinutes;
+    session.status = "completed";
+
+    await session.save();
+
+    const member = await Member.findById(memberId);
+
+    member.status = "inactive";
+
+    member.totalworkinghours =
+      (member.totalworkinghours || 0) + durationMinutes;
+
+    await member.save();
+
+    res.json({
+      status: true,
+      message: "Clock Out successful",
+      duration_minutes: durationMinutes,
+      total_working_minutes: member.totalworkinghours,
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getActiveMembers = async (req, res) => {
+  try {
+
+    const activeSessions = await WorkSession.find({ status: "active" })
+      .populate({
+        path: "member",
+        select: "firstName lastName email phone profileImg totalworkinghours"
+      });
+
+    res.json({
+      status: true,
+      total: activeSessions.length,
+      data: activeSessions
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      status: false,
+      message: error.message
     });
   }
 };
