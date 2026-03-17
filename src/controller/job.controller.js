@@ -984,11 +984,12 @@ export const getJobsByMemberOrClient = async (req, res) => {
       memberId,
       clientId,
       status,
+      jobType, // 🔥 NEW PARAM
       page = 1,
       limit = 10,
     } = req.query;
 
-    // At least one filter is required
+    // 🔴 At least one required
     if (!memberId && !clientId) {
       return res.status(400).json({
         success: false,
@@ -996,11 +997,10 @@ export const getJobsByMemberOrClient = async (req, res) => {
       });
     }
 
-    // Build the query filter
     const filter = {};
 
+    // ✅ Member / Client filter
     if (memberId && clientId) {
-      // Both provided → jobs for this member AND this client (intersection)
       filter.$and = [
         { assignedTo: memberId },
         { client: clientId },
@@ -1011,29 +1011,63 @@ export const getJobsByMemberOrClient = async (req, res) => {
       filter.client = clientId;
     }
 
-    if (status) {
+    // 🔥 PRIORITY LOGIC
+    // 1. jobType (highest priority)
+    if (jobType) {
+      switch (jobType.toLowerCase()) {
+        case "active":
+          filter.status = "active";
+          break;
+
+        case "completed":
+          filter.status = "complete";
+          break;
+
+        case "pending":
+          filter.status = "pending";
+          break;
+
+        case "approved":
+          filter.status = "approved";
+          break;
+
+        case "rejected":
+          filter.status = "rejected";
+          break;
+
+        default:
+          return res.status(400).json({
+            success: false,
+            message: "Invalid jobType value",
+          });
+      }
+    }
+    // 2. fallback to direct status
+    else if (status) {
       filter.status = status;
     }
 
-    // Pagination
+    // ✅ Pagination
     const skip = (Number(page) - 1) * Number(limit);
     const perPage = Number(limit);
 
-    // Fetch jobs - sorted by updatedAt descending (most recently modified first)
+    // ✅ Fetch Jobs
     const jobs = await Job.find(filter)
       .populate({
         path: "assignedTo",
-        select: "firstName lastName email phone profileImg totalworkinghours completedJobsCount",
+        select:
+          "firstName lastName email phone profileImg totalworkinghours completedJobsCount",
       })
       .populate({
         path: "client",
-        select: "companyInfo.companyName individualInfo.firstName individualInfo.lastName workinghours completedJobsCount",
+        select:
+          "companyInfo.companyName individualInfo.firstName individualInfo.lastName workinghours completedJobsCount",
       })
       .populate({
         path: "site_id",
-        select: "name address", // adjust based on your Site model
+        select: "site_name address1 address2 latitude longitude",
       })
-      .sort({ updatedAt: -1 })           // ← MOST RECENTLY MODIFIED FIRST
+      .sort({ updatedAt: -1 }) // latest updated first
       .skip(skip)
       .limit(perPage);
 
@@ -1047,8 +1081,9 @@ export const getJobsByMemberOrClient = async (req, res) => {
       currentPage: Number(page),
       data: jobs,
     });
+
   } catch (error) {
-    console.error("Get jobs by user error:", error);
+    console.error("Get jobs error:", error);
     res.status(500).json({
       success: false,
       message: "Server error while fetching jobs",

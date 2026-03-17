@@ -9,6 +9,7 @@ import imagekit from "../services/imagekit.js";
 import { sendEmail } from "../services/sendEmail.js";
 import { count } from "console";
 import WorkSession from "../model/workSession.model.js";
+import Site from "../model/site.model.js";
 
 // 🔑 Generate Token
 const generateToken = (user) => {
@@ -1547,15 +1548,21 @@ export const deleteInvite = async (req, res) => {
 };
 export const clockIn = async (req, res) => {
   try {
+    const { memberId, siteId } = req.body;
 
-    const { memberId } = req.body;
-
+    // 🔹 Validate Member
     const member = await Member.findById(memberId);
-
     if (!member) {
       return res.status(404).json({ message: "Member not found" });
     }
 
+    // 🔹 Validate Site
+    const site = await Site.findById(siteId);
+    if (!site) {
+      return res.status(404).json({ message: "Site not found" });
+    }
+
+    // 🔹 Check active session
     const activeSession = await WorkSession.findOne({
       member: memberId,
       status: "active",
@@ -1567,18 +1574,26 @@ export const clockIn = async (req, res) => {
       });
     }
 
+    // 🔹 Create session
     const session = await WorkSession.create({
       member: memberId,
+      site: siteId,
       clockIn: new Date(),
     });
 
+    // 🔹 Update member status (optional)
     member.status = "active";
     await member.save();
+
+    // 🔹 Populate full data
+    const fullSession = await WorkSession.findById(session._id)
+      .populate("member")
+      .populate("site");
 
     res.json({
       status: true,
       message: "Clock In successful",
-      data: session,
+      data: fullSession,
     });
 
   } catch (error) {

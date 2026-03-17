@@ -8,6 +8,12 @@ const workSessionSchema = new mongoose.Schema(
       required: true,
     },
 
+        site: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Site",
+      required: true,
+    },
+
     clockIn: {
       type: Date,
       required: true,
