@@ -23,7 +23,10 @@ const memberSchema = new mongoose.Schema(
     },
 
     email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true },
+    phone: { type: String, 
+      // required: true 
+
+    },
     role: {
       type: String,
       default: "member",
@@ -52,7 +55,7 @@ const memberSchema = new mongoose.Schema(
     assignTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Client",
-      // required: true,
+      required: true,
     },
     totalworkinghours: {
       type: Number,
@@ -64,7 +67,8 @@ const memberSchema = new mongoose.Schema(
       min: 0,
     },
 
-    password: { type: String, required: true },
+    password: { type: String, 
+      required: true },
 
     
   },

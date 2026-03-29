@@ -1153,11 +1153,7 @@ let user =
       success: true,
       message: "Login successful",
       token,
-      user:{
-        role: user.role,
-        id: user._id,
-        email: user.email,
-      }
+      user: user
     });
   } catch (error) {
     res.status(500).json({

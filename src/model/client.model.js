@@ -1,9 +1,9 @@
 import mongoose, { mongo } from "mongoose";
 import bcrypt from "bcryptjs";
+import { de } from "date-fns/locale";
 
 const clientSchema = new mongoose.Schema(
   {
-   
     companyInfo: {
       companyName: {
         type: String,
@@ -15,24 +15,24 @@ const clientSchema = new mongoose.Schema(
       // },
       companyPhone: {
         type: String,
-        required: true,
+        // required: true,
       },
       companyEmail: {
         type: String,
-        required: true,
         unique: true,
+        sparse: true,
       },
       companyWebsite: {
         type: String,
-        required: true,
+        // required: true,
       },
       address: {
         type: String,
-        required: true,
+        // required: true,
       },
       streetAdreess1: {
         type: String,
-        required: true,
+        // required: true,
       },
       // streetAdreess2: {
       //   type: String,
@@ -41,22 +41,22 @@ const clientSchema = new mongoose.Schema(
       country: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
-        required: true,
+        // required: true,
       },
       state: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "State",
-        required: true,
+        // required: true,
       },
       city: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "City",
-        required: true,
+        // required: true,
       },
       pincode: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Pincode",
-        required: true,
+        // required: true,
       },
       note: {
         type: String,
@@ -67,19 +67,19 @@ const clientSchema = new mongoose.Schema(
       },
       primeryContactFirstName: {
         type: String,
-        required: true,
+        // required: true,
       },
       primeryContactLastName: {
         type: String,
-        required: true,
+        // required: true,
       },
       primeryContactEmail: {
         type: String,
-        required: true,
+        // required: true,
       },
       primeryContactPhone: {
         type: String,
-        required: true,
+        // required: true,
       },
     },
     individualInfo: {
@@ -89,19 +89,19 @@ const clientSchema = new mongoose.Schema(
       },
       lastName: {
         type: String,
-        required: true,
+        // required: true,
       },
       email: {
         type: String,
-        required: true,
         unique: true,
+        sparse: true,
       },
       phone: {
         type: String,
-        required: true,
+        // required: true,
         unique: true,
       },
-      individaul_website:{
+      individaul_website: {
         type: String,
       },
       individaul_address: {
@@ -117,23 +117,22 @@ const clientSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
         default: null,
-  
       },
       individual_state: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "State",   
-        default: null,   
+        ref: "State",
+        default: null,
       },
       individual_city: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "City", 
-        default: null,    
+        ref: "City",
+        default: null,
       },
       individual_pincode: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Pincode", 
-        default: null,    
-       },
+        ref: "Pincode",
+        default: null,
+      },
       individual_note: {
         type: String,
       },
@@ -155,11 +154,12 @@ const clientSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      // required: true,
+      default: "admin@123",
     },
     role: {
       type: String,
-  
+
       default: "client",
     },
     workinghours: {
@@ -171,13 +171,13 @@ const clientSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
-    
+
     invites: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Invite",
-  },
-],
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Invite",
+      },
+    ],
   },
   { timestamps: true },
 );

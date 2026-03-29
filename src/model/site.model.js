@@ -14,6 +14,7 @@ const siteSchema = new mongoose.Schema(
     client_id: [{
       type:mongoose.Schema.Types.ObjectId,
       ref: "Client",
+      required: true
     }],
     address1: {
       type: String,
@@ -43,9 +44,11 @@ const siteSchema = new mongoose.Schema(
     },
     latitude: {
       type: String,
+      required: true
     },
     longitude: {
       type: String,
+      required: true
     },
     geofancing: {
       type: String,
@@ -56,6 +59,7 @@ const siteSchema = new mongoose.Schema(
     assignedTo: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "Member",
+      required: true
     }],
     status: {
       type: String,
