@@ -375,23 +375,23 @@ export const createInvite = async (req, res) => {
         const link = `${process.env.FRONTEND_URL}/inviteMember/${token}`;
 
     // ✅ SEND EMAIL HERE
-    await sendEmail(
-      email,
-      "You're Invited to Join 🎉",
-      `
-      <div style="font-family: Arial, sans-serif;">
-        <h2>Hello ${firstName},</h2>
-        <p>You have been invited to join our platform.</p>
-        <p><strong>Role:</strong> ${role}</p>
-        <p>Click below to accept your invite:</p>
-        <a href="${link}"
-           style="display:inline-block;padding:10px 20px;background:#e11d48;color:white;text-decoration:none;border-radius:6px;">
-           Accept Invite
-        </a>
-        <p>This link will expire in 24 hours.</p>
-      </div>
-      `
-    );
+    // await sendEmail(
+    //   email,
+    //   "You're Invited to Join 🎉",
+    //   `
+    //   <div style="font-family: Arial, sans-serif;">
+    //     <h2>Hello ${firstName},</h2>
+    //     <p>You have been invited to join our platform.</p>
+    //     <p><strong>Role:</strong> ${role}</p>
+    //     <p>Click below to accept your invite:</p>
+    //     <a href="${link}"
+    //        style="display:inline-block;padding:10px 20px;background:#e11d48;color:white;text-decoration:none;border-radius:6px;">
+    //        Accept Invite
+    //     </a>
+    //     <p>This link will expire in 24 hours.</p>
+    //   </div>
+    //   `
+    // );
 
     res.status(201).json({
       message: "Member invite sent successfully",
