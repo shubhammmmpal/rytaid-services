@@ -1,7 +1,7 @@
-import  Job  from "../model/job.model.js";
+import Job from "../model/job.model.js";
 import imagekit from "../services/imagekit.js";
 import Member from "../model/member.model.js";
-import {Client }from "../model/client.model.js";
+import { Client } from "../model/client.model.js";
 import {
   format,
   startOfDay,
@@ -12,7 +12,7 @@ import {
   eachWeekOfInterval,
   eachMonthOfInterval,
 } from "date-fns";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";import mongoose from "mongoose";
+import { toZonedTime, fromZonedTime } from "date-fns-tz"; import mongoose from "mongoose";
 
 
 /* ================= CREATE JOB ================= */
@@ -130,16 +130,16 @@ export const getAllJobs = async (req, res) => {
     const filter = {};
 
     // Basic filters
-    if (status)       filter.status     = status;
-    if (assignedTo)   filter.assignedTo = assignedTo;
-    if (client)       filter.client     = client;
-    if (site_id)      filter.site_id    = site_id;
+    if (status) filter.status = status;
+    if (assignedTo) filter.assignedTo = assignedTo;
+    if (client) filter.client = client;
+    if (site_id) filter.site_id = site_id;
 
     // Date range filter (on startDate field)
     if (startDate || endDate) {
       filter.startDate = {};
       if (startDate) filter.startDate.$gte = new Date(startDate);
-      if (endDate)   filter.startDate.$lte = new Date(endDate);
+      if (endDate) filter.startDate.$lte = new Date(endDate);
     }
 
     // Search in notes
@@ -225,7 +225,7 @@ export const getAllJobsInOrder = async (req, res) => {
     if (startDate || endDate) {
       filter.startDate = {};
       if (startDate) filter.startDate.$gte = new Date(startDate);
-      if (endDate)   filter.startDate.$lte = new Date(endDate);
+      if (endDate) filter.startDate.$lte = new Date(endDate);
     }
 
     // Pagination
@@ -400,7 +400,7 @@ export const changeJobStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!["pending", "approved", "rejected","complete","active"].includes(status)) {
+    if (!["pending", "approved", "rejected", "complete", "active"].includes(status)) {
       return res.status(400).json({
         message: "Invalid status value",
       });
@@ -614,45 +614,45 @@ export const getTeamActivity = async (req, res) => {
       startDate.setDate(now.getDate() - 56);
     }
 
-const activity = await Job.aggregate([
-  {
-    $match: {
-      createdAt: { $gte: startDate }
-    }
-  },
-  {
-    $group: {
-      _id: "$assignedTo",
-      totalJobs: { $sum: 1 }
-    }
-  },
-  {
-    $lookup: {
-      from: "members",
-      localField: "_id",
-      foreignField: "_id",
-      as: "member"
-    }
-  },
-  {
-    $unwind: {
-      path: "$member",
-      preserveNullAndEmptyArrays: true
-    }
-  },
-  {
-    $project: {
-      name: {
-        $ifNull: [
-          { $concat: ["$member.firstName", " ", "$member.lastName"] },
-          "Unknown Member"
-        ]
+    const activity = await Job.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate }
+        }
       },
-      totalJobs: 1
-    }
-  },
-  { $sort: { totalJobs: -1 } }
-]);
+      {
+        $group: {
+          _id: "$assignedTo",
+          totalJobs: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: "members",
+          localField: "_id",
+          foreignField: "_id",
+          as: "member"
+        }
+      },
+      {
+        $unwind: {
+          path: "$member",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          name: {
+            $ifNull: [
+              { $concat: ["$member.firstName", " ", "$member.lastName"] },
+              "Unknown Member"
+            ]
+          },
+          totalJobs: 1
+        }
+      },
+      { $sort: { totalJobs: -1 } }
+    ]);
 
 
     res.status(200).json({
@@ -776,9 +776,9 @@ export const punchOutJob = async (req, res) => {
     }
 
     // ── Update the Job document ──────────────────────────────────
-    job.attendance.punchOut.time   = punchOutTime;
+    job.attendance.punchOut.time = punchOutTime;
     job.attendance.punchOut.images = uploadedImages;
-    job.attendance.duration        = durationMinutes;
+    job.attendance.duration = durationMinutes;
     // job.status                     = "complete";
 
     await job.save();
@@ -802,8 +802,8 @@ export const punchOutJob = async (req, res) => {
       job.client,
       {
         $inc: {
-          workinghours:        durationHours,
-          completedJobsCount:  1
+          workinghours: durationHours,
+          completedJobsCount: 1
         }
       },
       { new: true, select: "workinghours completedJobsCount" }
@@ -824,7 +824,7 @@ export const punchOutJob = async (req, res) => {
       // },
       client: {
         id: job.client,
-        workinghours:        updatedClient ? Number(updatedClient.workinghours.toFixed(2)) : null,
+        workinghours: updatedClient ? Number(updatedClient.workinghours.toFixed(2)) : null,
         completedJobsCount: updatedClient?.completedJobsCount || 0,
       },
       imagesUploaded: uploadedImages.length,
@@ -933,7 +933,7 @@ export const removeAttachment = async (req, res) => {
     const { jobId } = req.params;
     const { imageName } = req.body; // yaha full URL aayega
 
-   
+
     if (!imageName) {
       return res.status(400).json({
         message: "imageName (full URL) is required",
@@ -1263,14 +1263,29 @@ export const getDashboardData = async (req, res) => {
       const structure = {
         0: { label: "Jan", hours: 0, completedJobs: 0 },
         1: { label: "Feb", hours: 0, completedJobs: 0 },
-        // ... same as before ...
+        2: { label: "Mar", hours: 0, completedJobs: 0 },
+        3: { label: "Apr", hours: 0, completedJobs: 0 },
+        4: { label: "May", hours: 0, completedJobs: 0 },
+        5: { label: "Jun", hours: 0, completedJobs: 0 },
+        6: { label: "Jul", hours: 0, completedJobs: 0 },
+        7: { label: "Aug", hours: 0, completedJobs: 0 },
+        8: { label: "Sep", hours: 0, completedJobs: 0 },
+        9: { label: "Oct", hours: 0, completedJobs: 0 },
+        10: { label: "Nov", hours: 0, completedJobs: 0 },
         11: { label: "Dec", hours: 0, completedJobs: 0 },
       };
 
       jobs.forEach((job) => {
-        const month = new Date(job.attendance.punchOut.time).getMonth();
-        structure[month].hours += (job.attendance.duration || 0) / 60;
-        structure[month].completedJobs += 1;
+        if (job?.attendance?.punchOut?.time) {
+          const month = new Date(
+            job.attendance.punchOut.time
+          ).getMonth();
+
+          structure[month].hours +=
+            (job.attendance.duration || 0) / 60;
+
+          structure[month].completedJobs += 1;
+        }
       });
 
       breakdown = Object.values(structure);
@@ -1324,7 +1339,7 @@ export const getDashboardData = async (req, res) => {
  */
 export const getAllActivePunchedInJobs = async (req, res) => {
 
-  
+
   try {
     const jobs = await Job.find({
       // Option A: strict (only truly in-progress attendance)
